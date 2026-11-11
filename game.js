@@ -52,7 +52,7 @@ const CHOICES = {
 };
 
 function newGame(){return {
-  version:1,created:false,day:1,weather:'☀️ Ясно',nav:'home',coins:45,wood:4,energy:8,
+  version:1,created:true,day:1,weather:'☀️ Ясно',nav:'home',level:1,coins:45,wood:4,energy:8,
   character:{name:'Луна',skin:'#f6d9c3',hair:'#3b2c2b',dress:'#a36d88',hat:'#40324d',style:'long',pet:'cat'},
   seeds:{tomato:3,rosemary:2,berry:2,wheat:2},
   inventory:{tomato:2,rosemary:1,berry:1,wheat:0,salt:3},
@@ -67,7 +67,12 @@ function validGame(data){
   return true;
 }
 function load(){try{const s=JSON.parse(localStorage.getItem(SAVE_KEY));return validGame(s)?s:newGame();}catch{return newGame();}}
-let state=load();let toastTimer=null;
+let state=load();
+// В версии 0.2 персонаж по умолчанию уже создан; редактор откроется отдельным разделом позже.
+state.created=true;
+state.level=Number.isFinite(state.level)?Math.max(1,state.level):1;
+if(!['home','garden','kitchen','shop','journal','companion','mailbox','profile'].includes(state.nav))state.nav='home';
+let menuOpen=false;let toastTimer=null;
 function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));}catch(e){console.warn('Не удалось сохранить игру',e);}}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function formatCost(coins,wood=0){return `${coins} 🪙${wood?' · '+wood+' 🪵':''}`;}
@@ -109,16 +114,39 @@ function renderCreator(){
       <div class="creator-footer"><button class="btn" data-action="start">Отправиться в Туманный лес ✨</button><div class="mini-note">Прогресс сохраняется автоматически на этом устройстве.</div></div>
     </div></section></div>`;
 }
-function navButton(id,icon,label){return `<button class="nav-btn ${state.nav===id?'active':''}" data-action="nav" data-id="${id}" aria-current="${state.nav===id?'page':'false'}"><span>${icon}</span><span>${label}</span></button>`;}
+function navButton(id,label){
+  return `<button class="nav-btn ${state.nav===id?'active':''}" data-action="nav" data-id="${id}" aria-current="${state.nav===id?'page':'false'}"><span>${label}</span></button>`;
+}
 function render(){
-  if(!state.created){renderCreator();return;}
+  if(!state.created)state.created=true;
   const c=state.character;
-  const screens={home:renderHome,garden:renderGarden,kitchen:renderKitchen,shop:renderShop,journal:renderJournal};
-  const subtitle={home:'Глава I · Снова дома',garden:'Глава I · Жизнь прорастает',kitchen:'Глава I · Колдовская кухня',shop:'Глава I · Лавка на опушке',journal:'Глава I · Дневник ведьмы'};
-  $app.innerHTML=`<div class="game"><aside class="sidebar"><div class="brand"><small>✧ здесь живёт магия ✧</small><strong>Ведьмин домик</strong></div>
-  <nav class="nav" aria-label="Разделы игры">${navButton('home','🏡','Дом')}${navButton('garden','🌱','Огород')}${navButton('kitchen','🍲','Котёл')}${navButton('shop','🪙','Лавка')}${navButton('journal','📜','Дневник')}</nav>
-  <div class="sidebar-bottom"><div class="sidebar-char"><div class="mini-avatar">${renderAvatar(c)}</div><div><strong>${esc(c.name)}</strong><small>${{cat:'🐈‍⬛ С кошкой',fox:'🦊 С лисом',owl:'🦉 С совой'}[c.pet]||'Юная ведьма'}</small></div></div><div class="side-foot">✦ уютная игра для своих ✦<br>Версия 0.1</div></div></aside>
-  <main class="game-main"><header class="topbar"><div class="topbar-lead">${subtitle[state.nav]||subtitle.home}</div><div class="stats"><span class="stat">☀️ День ${state.day}</span><span class="stat">🪙 ${state.coins}</span><span class="stat">⚡ ${state.energy}/${maxEnergy()}</span><span class="stat">🪵 ${state.wood}</span></div></header>${(screens[state.nav]||renderHome)()}</main></div>`;
+  const screens={home:renderHome,garden:renderGarden,kitchen:renderKitchen,shop:renderShop,journal:renderJournal,companion:renderCompanion,mailbox:renderMailbox,profile:renderProfile};
+  const current=(screens[state.nav]||renderHome)();
+  const locked=Array.from({length:5},()=>`<button class="locked-tile" type="button" disabled><span>Скоро будут<br>доступны</span></button>`).join('');
+  $app.innerHTML=`<div class="game-shell ${menuOpen?'menu-open':''}">
+    <main class="scene-area">
+      ${state.nav!=='home'?`<button class="back-home" data-action="nav" data-id="home">← Дом</button>`:''}
+      <div class="scene-content">${current}</div>
+      <small class="version-label">Версия 0.2</small>
+    </main>
+    <aside class="drawer" aria-label="Игровое меню" aria-hidden="${!menuOpen}">
+      <section class="profile-block">
+        <button class="profile-avatar" data-action="profile" aria-label="Открыть редактор персонажа">${renderAvatar(c)}</button>
+        <div class="profile-copy"><strong>${esc(c.name)}</strong><span>Уровень ${state.level}</span><small>День ${state.day} · Энергия ${state.energy}/${maxEnergy()} · Монеты ${state.coins}</small></div>
+      </section>
+      <nav class="nav-grid" aria-label="Разделы игры">
+        ${navButton('garden','Огород')}
+        ${navButton('kitchen','Котёл')}
+        ${navButton('shop','Лавка')}
+        ${navButton('journal','Дневник')}
+        ${navButton('companion','Спутник')}
+        ${navButton('mailbox','Почтовый ящик')}
+      </nav>
+      <div class="locked-grid">${locked}</div>
+      <div class="drawer-footer"><small>${state.weather} · День ${state.day}</small><button class="sleep-button" data-action="next-day">Завершить день →</button></div>
+    </aside>
+    <button class="menu-toggle" data-action="toggle-menu" aria-label="${menuOpen?'Закрыть меню':'Открыть меню'}" aria-expanded="${menuOpen}"><span></span><span></span><span></span></button>
+  </div>`;
 }
 function renderSide(opts={}){
   return `<div class="right-column"><section class="panel"><h3 class="subheading">🎒 В кармашках</h3><div class="mini-list">${Object.entries(INGREDIENTS).map(([id,item])=>`<div class="resource-row"><span>${item.icon} ${item.name}</span><b>${state.inventory[id]||0}</b></div>`).join('')}<div class="resource-row"><span>🪵 Древесина</span><b>${state.wood}</b></div></div></section>
@@ -126,33 +154,32 @@ function renderSide(opts={}){
   ${opts.extra||''}</div>`;
 }
 function homeSVG(){
-  const r=state.repairs,d=state.decor;
-  return `<svg viewBox="0 0 680 390" aria-label="Домик в волшебном лесу" role="img" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="553" cy="62" r="28" fill="#fff0c1" opacity=".79"/><g fill="#244e46" opacity=".7"><path d="M13 278 90 85l81 193Z"/><path d="M476 289 559 89l100 200Z"/><path d="M525 290 601 128l79 162Z"/></g><g fill="#37695a"><path d="m-18 313 79-192 80 192Z"/><path d="m506 317 81-187 81 187Z"/><path d="m593 314 54-146 58 146Z"/></g><ellipse cx="348" cy="352" rx="238" ry="24" fill="#173c352f"/>
-    <path d="M166 168h354v180H166Z" fill="${r.window?'#d6bb91':'#9d9380'}" stroke="#554b47" stroke-width="5"/><path d="M160 196h360" stroke="#f4e3bf" stroke-width="6" opacity=".38"/><path d="M165 257h350" stroke="#644e40" stroke-width="3" opacity=".6"/>
-    <path d="m132 184 114-126h188l116 126Z" fill="${r.roof?'#6c4c67':'#715f63'}" stroke="#463d44" stroke-width="8" stroke-linejoin="round"/>
-    <path d="m146 183 110-111 164 0 108 111" fill="none" stroke="${r.roof?'#bb96a1':'#645b5d'}" stroke-width="14" opacity=".7"/>
-    ${r.roof?`<path d="m254 84-45 50m78-50-45 50m80-50-45 50m80-50-45 50m80-50-45 50" stroke="#b594a4" stroke-width="3" opacity=".7"/>`:`<path d="m257 70-32 52 26-7-16 35m161-65-18 38 19 5" stroke="#c5b59d" stroke-width="7" fill="none"/><path d="m337 74 15 32-15 20" stroke="#3e383a" stroke-width="3" fill="none"/>`}
-    <path d="M407 92V45h45v83" fill="#846653" stroke="#584e45" stroke-width="5"/>${r.hearth?`<path d="M422 32q-23-20-7-36m18 30q-14-29 2-39" stroke="#f4f4e1" stroke-width="9" fill="none" stroke-linecap="round" opacity=".58"/>`:`<path d="M426 47h-17" stroke="#4b433c" stroke-width="3"/>`}
-    <rect x="213" y="213" width="92" height="78" rx="8" fill="${r.window?'#e6c48b':'#534b42'}" stroke="#6b5444" stroke-width="9"/><rect x="380" y="213" width="92" height="78" rx="8" fill="${r.window?'#e6c48b':'#534b42'}" stroke="#6b5444" stroke-width="9"/><g stroke="#7e695c" stroke-width="7"><path d="M259 218v69M218 252h82M426 218v69M385 252h82"/></g>
-    ${r.window?`<g fill="#e5f3ca" opacity=".55"><path d="m220 224 34 0-34 26Zm164 0 36 0-36 25Z"/></g>`:`<path d="m228 228 23 27-15 22m187-49-23 29 20 19" stroke="#d2bbb3" stroke-width="4" fill="none"/>`}
-    <path d="M318 263h48v85h-48Z" fill="#514542" stroke="#3f3a39" stroke-width="5"/><path d="M325 270h35v72h-35Z" fill="#6a4b49"/><circle cx="351" cy="313" r="4" fill="#e9c47e"/>
-    ${r.porch?`<path d="M299 349h86l23 24H276Z" fill="#bca88b"/><path d="m298 356 90 0m-99 10 109 0" stroke="#7e6c56" stroke-width="4"/>`:`<path d="m295 351 86-4 3 13-83 2Zm-9 15 108-5 9 11-113 3" fill="#9d8970" stroke="#6f5c49" stroke-width="3"/><path d="m351 349 8 9-11 13" stroke="#4a463d" stroke-width="3" fill="none"/>`}
-    ${d.lights?`<path d="M183 181q162 45 314 0" fill="none" stroke="#e6c180" stroke-width="2"/><g fill="#f6db9a"><circle cx="217" cy="189" r="5"/><circle cx="263" cy="197" r="5"/><circle cx="314" cy="203" r="5"/><circle cx="362" cy="203" r="5"/><circle cx="408" cy="197" r="5"/><circle cx="461" cy="190" r="5"/></g>`:''}
-    ${d.flowers?`<g font-size="29"><text x="142" y="350">🌸</text><text x="179" y="362">🌼</text><text x="491" y="350">🌼</text><text x="526" y="361">🌸</text></g>`:''}
-    ${d.rug?`<ellipse cx="340" cy="380" rx="58" ry="9" fill="#ad88a8"/><path d="M341 371q-12 0-10 7t20 0q-13 5-20-3" fill="#f2dab3"/>`:''}
-    <path d="M86 350q22-38 44-2m414 0q14-39 34-2" stroke="#7ea080" stroke-width="6" fill="none" stroke-linecap="round"/>
+  return `<svg viewBox="0 0 900 560" role="img" aria-label="Фасад старого дома на зелёном дворе" xmlns="http://www.w3.org/2000/svg">
+    <rect width="900" height="560" fill="#82A86F"/>
+    <path d="M256 231 450 73 644 231Z" fill="#604638" stroke="#463329" stroke-width="10" stroke-linejoin="round"/>
+    <path d="M284 226 450 91 616 226" fill="none" stroke="#8A6850" stroke-width="13" stroke-linecap="square"/>
+    <path d="M330 171 450 74 570 171Z" fill="#B98E67" stroke="#76563F" stroke-width="7"/>
+    <rect x="303" y="224" width="294" height="250" fill="#D8C19A" stroke="#76563F" stroke-width="9"/>
+    <path d="M303 260H597M303 296H597M303 332H597M303 368H597M303 404H597M303 440H597" stroke="#B99A72" stroke-width="3" opacity=".65"/>
+    <path d="M286 475H614" stroke="#594333" stroke-width="13" stroke-linecap="square"/>
+    <rect x="337" y="279" width="76" height="83" fill="#A9C3B4" stroke="#674B39" stroke-width="9"/>
+    <path d="M375 283V358M342 320H409" stroke="#76563F" stroke-width="6"/>
+    <rect x="487" y="279" width="76" height="83" fill="#A9C3B4" stroke="#674B39" stroke-width="9"/>
+    <path d="M525 283V358M492 320H559" stroke="#76563F" stroke-width="6"/>
+    <path d="M421 474V365Q421 351 435 351H465Q479 351 479 365V474Z" fill="#765039" stroke="#4F382B" stroke-width="8"/>
+    <circle cx="464" cy="418" r="5" fill="#E5C27A"/>
+    <path d="M414 352H486" stroke="#4F382B" stroke-width="8"/>
+    <rect x="545" y="111" width="39" height="85" fill="#76533E" stroke="#4F382B" stroke-width="7"/>
+    <path d="M536 111H593" stroke="#4F382B" stroke-width="9"/>
+    <path d="M280 230 450 93 620 230" fill="none" stroke="#3E2D25" stroke-width="7"/>
+    <path d="M303 474H597" stroke="#E5D3B0" stroke-width="4" opacity=".6"/>
   </svg>`;
 }
 function renderHome(){
-  const progress=Object.values(state.repairs).filter(Boolean).length;
-  const repairs=Object.entries(REPAIRS).map(([id,x])=>`<div class="upgrade-card ${state.repairs[id]?'done':''}"><span class="emoji">${x.icon}</span><b>${x.name}</b><p>${x.description}</p><div class="cost">${state.repairs[id]?'✓ Сделано':formatCost(x.coins,x.wood)}</div>${state.repairs[id]?`<span class="tag">Готово ✨</span>`:`<button class="btn small" data-action="repair" data-id="${id}" ${state.coins<x.coins||state.wood<x.wood?'disabled':''}>Восстановить</button>`}</div>`).join('');
-  const decor=Object.entries(DECOR).map(([id,x])=>`<div class="furniture-row"><span style="font-size:23px">${x.icon}</span><div class="item-text"><strong>${x.name}</strong><span class="cost">${x.coins} 🪙</span></div>${state.decor[id]?'<span class="tag">Куплено</span>':`<button class="btn small secondary" data-action="decorate" data-id="${id}" ${state.coins<x.coins?'disabled':''}>Купить</button>`}</div>`).join('');
-  return `<div class="hero-copy"><span class="tiny-caps">Твой маленький уголок в лесу</span><h1 class="page-title">Дом, который ждал тебя</h1><p>Скрипучие половицы, запылённые окна и запах старых книг. Немного заботы — и здесь снова будет жить волшебство.</p></div><div class="content-grid"><div class="main-column">
-    <section class="panel"><div class="home-scene"><span class="scene-caption">Дом на опушке</span><span class="floating-star star1">✧</span><span class="floating-star star2">✦</span><span class="floating-star star3">✧</span>${homeSVG()}</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px"><b style="font-size:13px">Восстановлено: ${progress} из 4</b><span class="tag">${progress===4?'Дом ожил ✨':'Ещё немного магии…'}</span></div><div class="progress-track"><div class="progress-fill" style="width:${progress/4*100}%"></div></div></section>
-    <section class="panel"><div class="section-head"><h2>Приведём дом в порядок</h2><span class="tiny-caps">Ремонт</span></div><div class="repair-grid">${repairs}</div><div class="divider"></div><div class="action-row"><button class="btn dark" data-action="forest">🌲 Собрать дрова <small>−2 ⚡ → +2 🪵</small></button><button class="btn secondary" data-action="pet">${{cat:'🐈‍⬛',fox:'🦊',owl:'🦉'}[state.character.pet]} Погладить спутника <small>+1 ⚡</small></button></div><p class="muted" style="font-size:11px;margin:10px 0 0">Спутник делится силой один раз в день.</p></section>
-    <section class="panel"><div class="section-head"><h2>Уютные мелочи</h2><span class="tiny-caps">Украшения</span></div><div class="furniture">${decor}</div></section>
-  </div>${renderSide()}</div>`;
+  return `<section class="screen-page home-page">
+    <h1 class="screen-title">Дом</h1>
+    <div class="yard-stage">${homeSVG()}</div>
+  </section>`;
 }
 function renderGarden(){
   const plots=state.plots.map((p,i)=>{
@@ -164,10 +191,11 @@ function renderGarden(){
     ripe?`<p>${crop.name} созрели! Собери урожай (+${crop.yield} шт.).</p><button class="btn small" data-action="harvest">Собрать урожай <span>−1 ⚡</span></button>`:
     `<p>${crop.name} растут. Можно полить, чтобы ускорить рост на день.</p><button class="btn small" data-action="water" ${p.wateredDay===state.day?'disabled':''}>💧 ${p.wateredDay===state.day?'Уже полито':'Полить · −1 ⚡'}</button>`;
   const seeds=Object.entries(CROPS).map(([id,item])=>`<button class="seed ${state.selectedSeed===id?'selected':''}" data-action="seed" data-id="${id}"><span class="emoji">${item.icon}</span><span class="seed-info"><strong>${item.name}</strong><small>${item.days} дн. до сбора</small></span><b>×${state.seeds[id]}</b></button>`).join('');
-  return `<div class="hero-copy"><span class="tiny-caps">Здесь всё начинается с семечка</span><h1 class="page-title">Огород за домом</h1><p>Сажай травы и овощи, поливай грядки и собирай ингредиенты для новых рецептов.</p></div><div class="content-grid"><div class="main-column">
-    <section class="panel"><div class="section-head"><h2>Шесть волшебных грядок</h2><span class="tag">День ${state.day}</span></div><div class="garden-field"><div class="garden-grid">${plots}</div></div><p class="muted" style="font-size:12px;margin:12px 0 0">Нажми на грядку, чтобы посадить, полить или собрать урожай.</p></section>
+  return `<section class="screen-page">
+    <div class="screen-heading"><h1>Огород</h1><p>Сажай травы и овощи, поливай грядки и собирай ингредиенты для новых рецептов.</p></div>
+    <section class="panel garden-panel"><div class="section-head"><h2>Шесть волшебных грядок</h2><span class="tag">День ${state.day}</span></div><div class="garden-field"><div class="garden-grid">${plots}</div></div><p class="muted helper-text">Нажми на грядку, чтобы посадить, полить или собрать урожай.</p></section>
     <section class="panel"><h2 class="subheading">Твои семена</h2><div class="seed-grid">${seeds}</div><div class="selected-plot"><h3>Грядка №${state.selectedPlot+1}</h3>${control}</div></section>
-  </div>${renderSide()}</div>`;
+  </section>`;
 }
 function renderCauldron(){
   return `<svg viewBox="0 0 450 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Чугунный котёл с зелёным зельем">
@@ -189,31 +217,43 @@ function renderKitchen(){
   const ingredients=Object.entries(INGREDIENTS).map(([id,item])=>`<button class="ingredient ${state.mix[id]>0?'selected':''}" data-action="add-mix" data-id="${id}" ${!state.inventory[id]||state.mix[id]>=state.inventory[id]?'disabled':''}><span class="emoji">${item.icon}</span><b>${item.name}</b><small>есть ${state.inventory[id]||0}</small></button>`).join('');
   const recipes=Object.entries(RECIPES).map(([id,x])=>`<div class="recipe"><span class="recipe-icon">${x.icon}</span><div style="flex:1"><b>${x.name} ${state.discovered.includes(id)?'✧':''}</b><p>${recipeIngredients(x.ingredients)} · +${x.energy} ⚡ при еде</p></div><button class="btn small secondary" data-action="use-recipe" data-id="${id}">В котёл</button></div>`).join('');
   const dishes=Object.entries(RECIPES).filter(([id])=>state.dishes[id]>0).map(([id,x])=>`<div class="dish"><div><strong>${x.icon} ${x.name} <small>×${state.dishes[id]}</small></strong><small>Съесть: +${x.energy} ⚡ / Продать: ${x.sell} 🪙</small></div><div class="pill-row"><button class="btn small secondary" data-action="eat" data-id="${id}">Съесть</button><button class="btn small" data-action="sell-dish" data-id="${id}">Продать</button></div></div>`).join('')||'<div class="empty-msg">Пока нет готовых блюд. Пора ставить котёл!</div>';
-  return `<div class="hero-copy"><span class="tiny-caps">Шепотки, приправы и щепотка магии</span><h1 class="page-title">Колдовская кухня</h1><p>Добавляй ингредиенты в котёл, открывай рецепты, угощайся или продавай свои творения.</p></div><div class="content-grid"><div class="main-column">
-    <section class="panel"><div class="section-head"><h2>Большой чугунный котёл</h2><span class="tag">Огонь разожжён ✧</span></div><div class="kitchen-stage"><span class="scene-caption">Варись, волшебство…</span>${renderCauldron()}</div><div class="divider"></div><h3 class="subheading">Выбери ингредиенты</h3><div class="ingredient-grid">${ingredients}</div><div style="margin-top:16px"><div class="tiny-caps" style="margin-bottom:9px">В котле сейчас:</div><div class="mix-line">${chips}</div></div><div class="action-row"><button class="btn" data-action="cook">✨ Сварить блюдо <small>−2 ⚡</small></button><button class="btn secondary" data-action="clear-mix">Очистить котёл</button></div></section>
+  return `<section class="screen-page">
+    <div class="screen-heading"><h1>Котёл</h1><p>Добавляй ингредиенты, открывай рецепты, угощайся или продавай свои творения.</p></div>
+    <section class="panel"><div class="section-head"><h2>Большой чугунный котёл</h2><span class="tag">Огонь разожжён ✧</span></div><div class="kitchen-stage"><span class="scene-caption">Варись, волшебство…</span>${renderCauldron()}</div><div class="divider"></div><h3 class="subheading">Выбери ингредиенты</h3><div class="ingredient-grid">${ingredients}</div><div class="mix-area"><div class="tiny-caps">В котле сейчас:</div><div class="mix-line">${chips}</div></div><div class="action-row"><button class="btn" data-action="cook">✨ Сварить блюдо <small>−2 ⚡</small></button><button class="btn secondary" data-action="clear-mix">Очистить котёл</button></div></section>
     <section class="panel"><div class="section-head"><h2>Книга рецептов</h2><span class="tag">Открыто: ${state.discovered.length}/${Object.keys(RECIPES).length}</span></div><div class="recipes">${recipes}</div></section>
     <section class="panel"><h2 class="subheading">🍴 Готовые блюда</h2><div class="dish-list">${dishes}</div></section>
-  </div>${renderSide()}</div>`;
+  </section>`;
 }
 function renderShop(){
   const buyables=[...Object.entries(CROPS).map(([id,x])=>({id:'seed-'+id,name:x.seed,icon:x.icon,cost:x.cost,type:'семена'})),{id:'salt',name:'Щепотка соли',icon:'🧂',cost:3,type:'специи'},{id:'wood',name:'Связка древесины',icon:'🪵',cost:6,type:'стройматериал'}];
   const buys=buyables.map(x=>`<div class="shop-item"><span class="item-icon">${x.icon}</span><div class="item-main"><strong>${x.name}</strong><small>${x.type} · 1 шт.</small></div><button class="btn small" data-action="buy" data-id="${x.id}" ${state.coins<x.cost?'disabled':''}>${x.cost} 🪙</button></div>`).join('');
   const selling=Object.entries(CROPS).map(([id,x])=>`<div class="shop-item"><span class="item-icon">${x.icon}</span><div class="item-main"><strong>${x.name}</strong><small>У тебя: ${state.inventory[id]} шт.</small></div><button class="btn small secondary" data-action="sell-ingredient" data-id="${id}" ${!state.inventory[id]?'disabled':''}>+${x.sell} 🪙</button></div>`).join('');
   const order=ORDERS[state.ordersCompleted%ORDERS.length],meal=RECIPES[order.dish];
-  return `<div class="hero-copy"><span class="tiny-caps">Приятный звон монет</span><h1 class="page-title">Лавка на опушке</h1><p>Покупай семена, добывай материалы и продавай излишки урожая. А ещё местные жители оставляют необычные заказы.</p></div><div class="content-grid"><div class="main-column">
+  return `<section class="screen-page">
+    <div class="screen-heading"><h1>Лавка</h1><p>Покупай семена, специи и материалы, продавай урожай и выполняй заказы жителей леса.</p></div>
     <section class="panel"><div class="section-head"><h2>Прилавок</h2><span class="tag">Кошелёк: ${state.coins} 🪙</span></div><div class="shop-grid">${buys}</div></section>
-    <section class="panel"><h2>Продать урожай</h2><p class="muted" style="font-size:12px">Можно продать лишнее, но кое-что лучше оставить для кухни.</p><div class="shop-grid">${selling}</div></section>
-    <section class="panel"><div class="tiny-caps">Письмо от жителя леса</div><div class="order-card" style="margin-top:11px"><div class="tiny-caps">Заказ №${state.ordersCompleted+1}</div><h3>✉️ ${order.person}</h3><p>«${order.text}»</p><p>Нужно: ${meal.icon} ${meal.name} ×${order.count}<br>Награда: <b>${order.reward} 🪙</b></p><button class="btn" data-action="order" ${state.dishes[order.dish]<order.count?'disabled':''}>Отдать заказ</button></div><p class="muted" style="font-size:11px;margin:10px 0 0">Уже выполнено заказов: ${state.ordersCompleted}. После сдачи появится новый.</p></section>
-  </div>${renderSide()}</div>`;
+    <section class="panel"><h2>Продать урожай</h2><p class="muted helper-text">Можно продать лишнее, но кое-что лучше оставить для кухни.</p><div class="shop-grid">${selling}</div></section>
+    <section class="panel"><div class="tiny-caps">Письмо от жителя леса</div><div class="order-card" style="margin-top:11px"><div class="tiny-caps">Заказ №${state.ordersCompleted+1}</div><h3>✉️ ${order.person}</h3><p>«${order.text}»</p><p>Нужно: ${meal.icon} ${meal.name} ×${order.count}<br>Награда: <b>${order.reward} 🪙</b></p><button class="btn" data-action="order" ${state.dishes[order.dish]<order.count?'disabled':''}>Отдать заказ</button></div><p class="muted helper-text">Уже выполнено заказов: ${state.ordersCompleted}. После сдачи появится новый.</p></section>
+  </section>`;
 }
 function renderJournal(){
   const tasks=QUESTS.map(q=>{const n=Math.min(state.stats[q.stat],q.target),claimed=state.claimed.includes(q.id),ready=n>=q.target&&!claimed;return `<div class="quest"><span class="quest-icon">${q.icon}</span><div class="quest-desc"><h3>${q.name}</h3><p>${q.text} · ${n}/${q.target}</p><div class="progress-track" style="height:5px"><div class="progress-fill" style="width:${Math.round(n/q.target*100)}%"></div></div></div>${claimed?'<span class="tag">✓ Готово</span>':`<button class="btn small ${ready?'':'secondary'}" data-action="claim" data-id="${q.id}" ${ready?'':'disabled'}>+${q.reward} 🪙</button>`}</div>`}).join('');
-  return `<div class="hero-copy"><span class="tiny-caps">Листочки из волшебной тетради</span><h1 class="page-title">Дневник ${esc(state.character.name)}</h1><p>Каждая маленькая победа делает заброшенный дом всё более твоим. А важные моменты остаются на страницах дневника.</p></div><div class="content-grid"><div class="main-column">
+  return `<section class="screen-page">
+    <div class="screen-heading"><h1>Дневник</h1><p>Задания, заметки и маленькие события из жизни ведьмочки.</p></div>
     <section class="panel"><div class="section-head"><h2>Маленькие цели</h2><span class="tag">Выполнено ${state.claimed.length}/${QUESTS.length}</span></div>${tasks}</section>
-    <section class="panel"><h2>Страницы истории</h2><div style="margin-top:17px">${state.log.map(x=>{const i=x.indexOf('. ');return `<div class="diary-entry"><b>${esc(x.slice(0,i+1))}</b>${esc(x.slice(i+2))}</div>`}).join('')}</div></section>
-  </div><div class="right-column"><section class="panel"><h3 class="subheading">📖 Статистика</h3><div class="mini-list">${[['🌱 Посадок',state.stats.planted],['🧺 Урожаев',state.stats.harvested],['🍲 Блюд',state.stats.cooked],['🔨 Ремонтов',state.stats.repairs],['🪙 Продаж',state.stats.sold],['✉️ Заказов',state.ordersCompleted]].map(([k,v])=>`<div class="resource-row"><span>${k}</span><b>${v}</b></div>`).join('')}</div></section>
-    <section class="panel"><h3 class="subheading">💾 Твоё сохранение</h3><p class="muted" style="font-size:12px">Игра сохраняется в этом браузере. Для переноса на другое устройство скачай файл сохранения.</p><div class="foot-actions"><button class="btn small dark" data-action="export">Скачать</button><button class="btn small secondary" data-action="import">Загрузить</button><button class="btn small danger" data-action="reset">Начать заново</button></div><input type="file" id="import-save" accept="application/json,.json" hidden></section>
-  ${renderSide().replace(/^<div class="right-column">/,'').replace(/<\/div>$/,'')}</div></div>`;
+    <section class="panel"><h2>Страницы истории</h2><div class="diary-list">${state.log.map(x=>{const i=x.indexOf('. ');return `<div class="diary-entry"><b>${esc(x.slice(0,i+1))}</b>${esc(x.slice(i+2))}</div>`}).join('')}</div></section>
+    <section class="panel"><h2>Статистика и сохранение</h2><div class="stats-grid">${[['🌱 Посадок',state.stats.planted],['🧺 Урожаев',state.stats.harvested],['🍲 Блюд',state.stats.cooked],['🔨 Ремонтов',state.stats.repairs],['🪙 Продаж',state.stats.sold],['✉️ Заказов',state.ordersCompleted]].map(([k,v])=>`<div class="stat-card"><span>${k}</span><b>${v}</b></div>`).join('')}</div><p class="muted helper-text">Игра сохраняется в этом браузере. Для переноса на другое устройство скачай файл сохранения.</p><div class="foot-actions"><button class="btn small dark" data-action="export">Скачать сохранение</button><button class="btn small secondary" data-action="import">Загрузить</button><button class="btn small danger" data-action="reset">Начать заново</button></div><input type="file" id="import-save" accept="application/json,.json" hidden></section>
+  </section>`;
+}
+function renderCompanion(){
+  const pet={cat:{name:'Кошка',icon:'🐈‍⬛',text:'Любит дремать на тёплом подоконнике и мурлыкать рядом, когда ты колдуешь.'},fox:{name:'Лис',icon:'🦊',text:'Любопытный и шустрый спутник. Иногда приносит из леса маленькие находки.'},owl:{name:'Сова',icon:'🦉',text:'Наблюдает за всем с высоты и не пропускает ни одной тайны.'}}[state.character.pet]||{name:'Спутник',icon:'✨',text:'Твой маленький волшебный помощник.'};
+  return `<section class="screen-page"><div class="screen-heading"><h1>Спутник</h1><p>Тот, кто всегда рядом, даже когда в котле что-то пошло не так.</p></div><section class="panel companion-card"><div class="companion-portrait">${pet.icon}</div><div><h2>${pet.name}</h2><p>${pet.text}</p><p class="muted helper-text">Спутник может поделиться с тобой одной единицей энергии в день.</p><button class="btn" data-action="pet">Поиграть со спутником · +1 ⚡</button></div></section></section>`;
+}
+function renderMailbox(){
+  return `<section class="screen-page"><div class="screen-heading"><h1>Почтовый ящик</h1><p>Здесь будут появляться письма от жителей леса, подарки и приглашения от подруг.</p></div><section class="panel mailbox-empty"><div>✉️</div><h2>Пока писем нет</h2><p>Кажется, почтальон ещё не добрался до твоего домика.</p></section></section>`;
+}
+function renderProfile(){
+  return `<section class="screen-page"><div class="screen-heading"><h1>Редактор персонажа</h1><p>Здесь ты сможешь менять внешность, причёску, одежду и аксессуары своей ведьмочки.</p></div><section class="panel profile-coming"><div class="profile-preview">${renderAvatar(state.character)}</div><div><span class="tag">В разработке</span><h2>${esc(state.character.name)}</h2><p>Редактор пока готовится. Следующим этапом добавим полноценную модельку, которую можно будет кастомизировать по слоям.</p><button class="btn secondary" data-action="nav" data-id="home">Вернуться домой</button></div></section></section>`;
 }
 function selectedPlot(){return state.plots[state.selectedPlot];}
 function action(name,id,element){
@@ -225,7 +265,9 @@ function action(name,id,element){
   case 'start':{
     const name=String(state.character.name).trim();state.character.name=name.slice(0,24)||'Луна';state.created=true;addLog(`${state.character.name} переступила порог нового дома. Рядом её верный спутник.`);break;
   }
-  case 'nav':{if(['home','garden','kitchen','shop','journal'].includes(id))state.nav=id;break;}
+  case 'nav':{if(['home','garden','kitchen','shop','journal','companion','mailbox','profile'].includes(id)){state.nav=id;menuOpen=false;}break;}
+  case 'toggle-menu':{menuOpen=!menuOpen;render();return;}
+  case 'profile':{state.nav='profile';menuOpen=false;break;}
   case 'next-day':{
     state.day++;state.energy=maxEnergy();state.weather=['☀️ Ясно','🌦️ Переменная облачность','🌫️ Туманно','🌧️ Дождь'][Math.floor(Math.random()*4)];
     state.plots.forEach(p=>{if(p&&p.growth<CROPS[p.type].days)p.growth=Math.min(CROPS[p.type].days,p.growth+1);});
@@ -328,7 +370,7 @@ function action(name,id,element){
   case 'import':{document.getElementById('import-save')?.click();return;}
   case 'reset':{
     if(!confirm('Удалить прогресс этой ведьмочки и создать новую? Сначала можно скачать сохранение в дневнике.'))return;
-    state=newGame();notice('История начинается заново.');break;
+    state=newGame();menuOpen=false;notice('История начинается заново.');break;
   }
   default:return;
   }
@@ -357,7 +399,7 @@ $app.addEventListener('change',async e=>{
     // Basic integrity checks against malformed or edited saves.
     if(!Number.isFinite(data.day)||data.day<1||!Number.isFinite(data.coins)||data.coins<0||typeof data.created!=='boolean')throw new Error('Некорректные данные сохранения.');
     if(!confirm(`Загрузить сохранение ведьмочки «${String(data.character.name).slice(0,24)}»? Текущий прогресс будет заменён.`))return;
-    state=data;state.character.name=String(data.character.name).slice(0,24);state.nav=['home','garden','kitchen','shop','journal'].includes(data.nav)?data.nav:'home';
+    state=data;state.character.name=String(data.character.name).slice(0,24);state.created=true;state.level=Number.isFinite(data.level)?Math.max(1,data.level):1;state.nav=['home','garden','kitchen','shop','journal','companion','mailbox','profile'].includes(data.nav)?data.nav:'home';menuOpen=false;
     state.selectedPlot=Number.isInteger(data.selectedPlot)&&data.selectedPlot>=0&&data.selectedPlot<6?data.selectedPlot:0;
     state.selectedSeed=CROPS[data.selectedSeed]?data.selectedSeed:'tomato';
     save();render();notice('Сохранение загружено!');

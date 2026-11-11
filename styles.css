@@ -17,3 +17,120 @@
 @media(max-width:900px){.content-grid{grid-template-columns:1fr}.right-column{display:grid;grid-template-columns:1fr 1fr;gap:14px}.right-column .panel{margin:0}.opening{grid-template-columns:1fr}.opening-art{min-height:320px;padding:30px}.opening-art:after{display:none}.avatar-frame{max-width:220px}.opening-content{min-height:auto;padding:28px 30px 46px}.opening-content>div{max-width:700px}.opening-art h1{font-size:32px}.opening-art p{margin:0}.opening-logo{margin:0}}
 @media(max-width:690px){.game{display:block;padding-bottom:73px}.sidebar{height:auto;min-height:0;position:static;padding:13px 15px;display:flex;flex-direction:row;align-items:center}.brand{padding:0}.brand strong{font-size:17px}.brand small{font-size:15px}.nav{position:fixed;bottom:0;left:0;right:0;z-index:5;display:grid;grid-template-columns:repeat(5,1fr);gap:0;background:#17312d;box-shadow:0 -5px 30px #15241b44;padding:7px 2px max(7px,env(safe-area-inset-bottom))}.nav-btn{padding:9px 0 6px;font-size:10px;flex-direction:column;gap:2px;text-align:center;border-radius:9px}.nav-btn span:first-child{font-size:20px}.sidebar-bottom{margin-left:auto}.sidebar-char{padding:3px 7px}.sidebar-char .mini-avatar{height:39px;width:39px;flex-basis:39px}.sidebar-char strong{font-size:12px}.sidebar-char small,.side-foot{display:none}.game-main{padding:18px 14px 35px}.topbar{margin-bottom:20px}.stats{gap:4px}.stat{font-size:11px;padding:8px}.panel{padding:16px;border-radius:17px}.right-column{display:block}.right-column .panel{margin-top:14px}.garden-grid{gap:7px}.plot{min-height:106px;border-radius:23px}.plot .plant{font-size:27px}.plot .plot-label{font-size:10px}.repair-grid{gap:7px}.upgrade-card{padding:11px}.shop-grid{grid-template-columns:1fr}.ingredient-grid{gap:4px}.ingredient{padding:10px 1px}.ingredient .emoji{font-size:25px}.ingredient b{font-size:9px}.quest{padding:13px}.opening-content{padding:24px 18px 45px}.editor-grid{gap:8px}.swatch{width:30px;height:30px}.toast{right:10px;left:10px;bottom:84px;max-width:none}.kitchen-stage{min-height:250px}.home-scene{min-height:260px}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* Version 0.2 — compact scene + right-hand game menu */
+:root{--ui-gray:#d8d8d8;--wood-panel:#70472f;--wood-button:#a95620;--wood-button-hover:#bd672c;--yard-green:#82a86f;--ui-ink:#171717}
+html,body{min-height:100%;background:var(--ui-gray);color:var(--ui-ink);font-family:Arial,Helvetica,sans-serif}
+body{overflow-x:hidden}
+.game-shell{min-height:100vh;display:grid;grid-template-columns:minmax(0,1fr) 0;background:var(--ui-gray);transition:grid-template-columns .24s ease}
+.game-shell.menu-open{grid-template-columns:minmax(0,1fr) clamp(320px,38vw,370px)}
+.scene-area{position:relative;min-width:0;min-height:100vh;background:var(--ui-gray);display:flex;flex-direction:column;overflow:hidden}
+.scene-content{flex:1;min-width:0;display:flex;flex-direction:column}
+.drawer{min-width:0;min-height:100vh;overflow-y:auto;background:var(--wood-panel);color:#fff;padding:18px 18px 22px;visibility:hidden;opacity:0;transition:opacity .18s ease;display:flex;flex-direction:column;gap:16px}
+.menu-open .drawer{visibility:visible;opacity:1}
+.menu-toggle{position:fixed;right:16px;top:8px;z-index:50;width:30px;height:28px;border:0;background:transparent;padding:3px;display:flex;flex-direction:column;justify-content:space-between;cursor:pointer}
+.menu-toggle span{display:block;width:23px;height:1.5px;background:#242424;transition:transform .2s,opacity .2s}
+.menu-open .menu-toggle span:first-child{transform:translateY(9px) rotate(45deg)}
+.menu-open .menu-toggle span:nth-child(2){opacity:0}
+.menu-open .menu-toggle span:last-child{transform:translateY(-9px) rotate(-45deg)}
+.profile-block{display:flex;align-items:center;gap:17px;padding:8px 0 5px;min-height:105px}
+.profile-avatar{width:90px;height:90px;flex:0 0 90px;border:0;border-radius:50%;background:#d8d8d8;overflow:hidden;padding:0;display:grid;place-items:center}
+.profile-avatar svg{width:112%;height:112%;object-fit:cover}
+.profile-copy{min-width:0;display:flex;flex-direction:column;gap:6px;color:#fff}
+.profile-copy strong{font-size:22px;font-weight:400}
+.profile-copy span{font-size:12px;color:#f1dfd0}
+.profile-copy small{font-size:11px;line-height:1.45;color:#f4e7db;white-space:normal}
+.nav-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.nav-btn{min-width:0;min-height:86px;border:0;border-radius:0;background:var(--wood-button);color:#17120f;padding:10px 5px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;font-size:12px;font-weight:400;line-height:1.25;transition:background .15s,transform .15s}
+.nav-btn:hover{background:var(--wood-button-hover);transform:translateY(-1px)}
+.nav-btn.active{background:#c5783d;color:#17120f;outline:2px solid #e5b17e;outline-offset:-2px}
+.nav-btn .nav-icon{width:auto;font-size:20px;line-height:1}
+.locked-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.locked-tile{min-width:0;min-height:86px;border:0;border-radius:0;background:#aaa;color:#262626;padding:8px 6px;font-size:12px;line-height:1.25;opacity:1;display:grid;place-items:center}
+.drawer-footer{margin-top:auto;padding-top:10px;display:grid;gap:9px;color:#f0dfd2;font-size:11px}
+.sleep-button{border:0;background:#5a3524;color:#fff;padding:11px 13px;text-align:center;font-size:12px;cursor:pointer}
+.version-label{position:absolute;left:20px;bottom:14px;font-size:11px;color:#202020}
+.back-home{position:absolute;left:20px;top:17px;z-index:3;border:0;background:transparent;color:#252525;font-size:13px;padding:8px 10px;cursor:pointer}
+.screen-page{width:100%;max-width:1180px;margin:0 auto;padding:36px clamp(18px,3.2vw,48px) 58px;min-width:0}
+.screen-heading{text-align:center;margin:0 auto 22px;max-width:760px}
+.screen-heading h1,.screen-title{font-family:Arial,Helvetica,sans-serif;font-size:clamp(32px,4vw,48px);font-weight:400;line-height:1.15;letter-spacing:0;margin:0 0 9px;color:#111}
+.screen-heading p{font-size:14px;color:#555;margin:0;line-height:1.5}
+.home-page{max-width:none;display:flex;flex-direction:column;flex:1;padding:54px 0 42px}
+.screen-title{text-align:center;margin:20px 0 22px}
+.yard-stage{flex:1;min-height:360px;background:var(--yard-green);overflow:hidden;display:grid;place-items:center}
+.yard-stage svg{display:block;width:100%;height:100%;max-height:calc(100vh - 150px);min-height:360px;object-fit:contain}
+.panel{background:#f0f0f0;border:0;border-radius:4px;padding:20px;box-shadow:none;color:#222}
+.panel+.panel{margin-top:13px}
+.section-head{align-items:center}
+.section-head h2,.subheading,.panel h2{font-family:Arial,Helvetica,sans-serif;font-size:19px;font-weight:500;color:#222}
+.btn{border-radius:3px;background:#a95620;box-shadow:none;font-weight:500}
+.btn:hover:not(:disabled){background:#bd672c;transform:none}
+.btn.secondary{background:#d1d1d1;color:#242424}
+.btn.dark{background:#65412e}
+.btn.small{border-radius:3px}
+.tag{border-radius:2px;background:#e2e2e2;border-color:#ccc;color:#333}
+.tiny-caps{color:#6f4a32;letter-spacing:.08em}
+.hero-copy{margin-bottom:16px}
+.hero-copy p{color:#555}
+.content-grid{grid-template-columns:minmax(0,1fr)}
+.right-column{display:none}
+.garden-field{background:#8eaa70;border:0;border-radius:3px;padding:18px;min-height:280px}
+.garden-field:before{display:none}
+.garden-grid{margin-top:0;gap:10px}
+.plot{border-radius:3px;box-shadow:none}
+.plot:hover{transform:none}
+.seed{border-radius:3px;background:#f8f8f8}
+.seed.selected{outline:2px solid #a95620;background:#f1e2d6}
+.selected-plot{border-radius:3px;background:#e3e3e3}
+.kitchen-stage{border:0;border-radius:3px;min-height:280px}
+.ingredient{border-radius:3px;background:#f8f8f8}
+.ingredient.selected{border-color:#a95620;background:#f2e3d8}
+.recipe,.dish,.shop-item,.quest{border-radius:3px;background:#fafafa}
+.order-card{border-radius:3px}
+.helper-text{font-size:12px;margin:12px 0 0;color:#666}
+.mix-area{margin-top:16px;display:grid;gap:9px}
+.stats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0}
+.stat-card{background:#e4e4e4;padding:12px;display:flex;justify-content:space-between;gap:8px;font-size:12px}
+.stat-card b{font-size:16px}
+.diary-list{margin-top:16px}
+.companion-card,.profile-coming{display:flex;align-items:center;gap:26px;max-width:800px;margin:0 auto}
+.companion-portrait{width:150px;height:150px;flex:0 0 150px;border-radius:50%;display:grid;place-items:center;background:#dedede;font-size:76px}
+.companion-card h2,.profile-coming h2{font-size:25px;margin-bottom:10px}
+.mailbox-empty{text-align:center;padding:55px 20px}
+.mailbox-empty>div{font-size:54px;margin-bottom:14px}
+.mailbox-empty h2{margin-bottom:8px}
+.profile-preview{width:190px;height:190px;flex:0 0 190px;border-radius:50%;overflow:hidden;background:#d7d7d7}
+.profile-preview svg{width:100%;height:100%}
+.toast{border-radius:3px;background:#533a2c;border:1px solid #8d6244;box-shadow:0 8px 24px #0003}
+
+@media(max-width:760px){
+  .game-shell,.game-shell.menu-open{display:block;min-height:100svh}
+  .scene-area{min-height:100svh}
+  .drawer{position:fixed;right:0;top:0;bottom:0;width:min(90vw,370px);min-height:100svh;z-index:35;transform:translateX(102%);visibility:visible;opacity:1;transition:transform .22s ease;padding-top:48px}
+  .menu-open .drawer{transform:translateX(0)}
+  .menu-toggle{z-index:60}
+  .screen-page{padding:54px 14px 58px}
+  .home-page{padding:52px 0 38px}
+  .screen-title{font-size:38px;margin:15px 0 18px}
+  .yard-stage{min-height:320px}
+  .yard-stage svg{min-height:320px;max-height:70svh}
+  .garden-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ingredient-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .shop-grid{grid-template-columns:1fr}
+  .companion-card,.profile-coming{flex-direction:column;text-align:center;gap:14px}
+  .companion-portrait{width:120px;height:120px;flex-basis:120px;font-size:60px}
+  .profile-preview{width:150px;height:150px;flex-basis:150px}
+  .stats-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .version-label{bottom:9px;left:12px}
+  .back-home{top:10px;left:10px}
+}
+@media(max-width:430px){
+  .nav-grid,.locked-grid{gap:6px}
+  .nav-btn,.locked-tile{min-height:76px;font-size:11px}
+  .profile-avatar{width:76px;height:76px;flex-basis:76px}
+  .profile-copy strong{font-size:19px}
+  .profile-block{gap:12px}
+  .panel{padding:14px}
+  .section-head{align-items:flex-start;flex-direction:column}
+  .dish{align-items:flex-start;flex-direction:column}
+}
