@@ -14,6 +14,18 @@
     {id:'#90614e',name:'Каштановый'},
     {id:'#724937',name:'Тёмный'}
   ];
+  // Iris colours. Each preset replaces only three existing Figma gradient stops.
+  // Both base eye SVGs remain untouched on disk.
+  const EYE_PALETTE = [
+    {id:'amethyst', name:'Аметистовые', stops:['#CC5FE2','#C13CDB','#70347C']},
+    {id:'emerald', name:'Изумрудные', stops:['#9EF2BF','#42C783','#175B43']},
+    {id:'sapphire', name:'Сапфировые', stops:['#91DDFF','#489EE8','#234C93']},
+    {id:'amber', name:'Янтарные', stops:['#FFE5A5','#E3A43E','#82451D']},
+    {id:'rose', name:'Розовые', stops:['#FFC7EB','#ED81BF','#8D3869']},
+    {id:'silver', name:'Серебряные', stops:['#E6E9FF','#A5B4DA','#515C85']}
+  ];
+  const ORIGINAL_IRIS_STOPS = EYE_PALETTE[0].stops.map(s=>s.toLowerCase());
+  const EYE_COLOR_IDS = new Set(EYE_PALETTE.map(p=>p.id));
   const CATEGORIES = [
     {id:'skin', title:'Кожа', icon:'◈'},
     {id:'eyes', title:'Глаза', icon:'◉'},
@@ -43,11 +55,11 @@
       if (!Array.isArray(value?.[category])) continue;
       result[category] = value[category].slice(0,80).filter(x => x && /^[a-z0-9_-]{1,40}$/i.test(x.id) && typeof x.name==='string').map(x => {
         const entry = {id:x.id,name:x.name.slice(0,50)};
-        for (const key of ['file','back','front','top','bottom','thumbnail']) {
+        for (const key of ['file','back','front','top','bottom','left','right','thumbnail']) {
           if (x[key]) entry[key] = safeRelativePath(x[key]);
         }
         return entry;
-      }).filter(x => x.file || x.back || x.front || x.top || x.bottom);
+      }).filter(x => x.file || x.back || x.front || x.top || x.bottom || x.left || x.right);
     }
     return result;
   }
@@ -67,6 +79,7 @@
       (PALETTE.some(x=>x.id===character?.skin)?character.skin:PALETTE[0].id);
     return {
       skin,
+      eyeColor: EYE_COLOR_IDS.has(src.eyeColor) ? src.eyeColor : 'amethyst',
       eyes: typeof src.eyes==='string' ? src.eyes : '',
       hair: typeof src.hair==='string' ? src.hair : '',
       expressions: typeof src.expressions==='string' ? src.expressions : '',
@@ -91,18 +104,25 @@
     const expression = option('expressions',selected.expressions);
     const clothes = option('clothing',selected.clothing);
     const all=[];
-    const add=(key,src,tint=false)=>{const path=safeRelativePath(src);if(path)all.push({key,src:path,tint});};
+    const add=(key,src,tint=false,eye=false)=>{const path=safeRelativePath(src);if(path)all.push({key,src:path,tint,eye});};
     if(hair?.back) add('hair-back',hair.back);
     if(clothes?.back) add('clothes-back',clothes.back);
     add('legs',BASE+'legs.svg',true);
     add('body',BASE+'body.svg',true);
     add('neck',BASE+'neck.svg',true);
-add('shorts',clothes?.bottom || BASE+'shorts_basic.svg');
-add('arm-left',BASE+'arm_left.svg',true);
-add('arm-right',BASE+'arm_right.svg',true);
-add('top',clothes?.top || BASE+'top_basic.svg');
-add('head',BASE+'head.svg',true);
-    if(eyes?.file) add('eyes',eyes.file);
+    add('shorts',clothes?.bottom || BASE+'shorts_basic.svg');
+    add('arm-left',BASE+'arm_left.svg',true);
+    add('arm-right',BASE+'arm_right.svg',true);
+    // Top covers both arms, as in the latest manually adjusted base model.
+    add('top',clothes?.top || BASE+'top_basic.svg');
+    add('head',BASE+'head.svg',true);
+    // Original left and right eyes, each already positioned in a 600×1400 frame.
+    // A later eye-shape variant can supply one merged file or a left/right pair.
+    if(eyes?.file) add('eyes',eyes.file,false,true);
+    else {
+      add('eye-left',eyes?.left || BASE+'eye_left.svg',false,true);
+      add('eye-right',eyes?.right || BASE+'eye_right.svg',false,true);
+    }
     if(expression?.file) add('expression',expression.file);
     if(clothes?.front) add('clothing-front',clothes.front);
     else if(clothes?.file) add('clothing-front',clothes.file);
@@ -113,7 +133,8 @@ add('head',BASE+'head.svg',true);
   function spriteHtml(appearance, variant='full') {
     const a=appearance || appearanceFrom({});
     const aSkin=PALETTE.some(x=>x.id===a.skin)?a.skin:PALETTE[0].id;
-    const html=layers(a).map(l=>`<span class="witch-doll-layer" data-svg-src="${escapeHtml(l.src)}" data-skin="${l.tint ? escapeHtml(aSkin):''}" data-layer="${escapeHtml(l.key)}"><img src="${escapeHtml(l.src)}" alt="" draggable="false" loading="eager"></span>`).join('');
+    const eyeColor=EYE_COLOR_IDS.has(a.eyeColor)?a.eyeColor:'amethyst';
+    const html=layers(a).map(l=>`<span class="witch-doll-layer" data-svg-src="${escapeHtml(l.src)}" data-skin="${l.tint ? escapeHtml(aSkin):''}" data-eye-color="${l.eye ? eyeColor:''}" data-layer="${escapeHtml(l.key)}"><img src="${escapeHtml(l.src)}" alt="" draggable="false" loading="eager"></span>`).join('');
     return `<div class="witch-doll witch-doll--${variant}" role="img" aria-label="Векторная модель ведьмочки">${html}</div>`;
   }
 
@@ -151,6 +172,46 @@ add('head',BASE+'head.svg',true);
     if(!root.hasAttribute('viewBox')) root.setAttribute('viewBox','0 0 600 1400');
     return serializer.serializeToString(root);
   }
+  // Recolour only the iris gradient stops, not the pupil, eyelashes,
+  // sclera or highlights. SVG geometry and radialGradient coordinates stay as-is.
+  function recolourEyes(code, colorId) {
+    const preset=EYE_PALETTE.find(p=>p.id===colorId);
+    if(!preset) throw Error('Неизвестный цвет глаз');
+    const doc=xmlParser.parseFromString(code,'image/svg+xml');
+    if(doc.querySelector('parsererror') || doc.documentElement.localName!=='svg') throw Error('Некорректный SVG глаза');
+    const root=doc.documentElement;
+    root.querySelectorAll('script,foreignObject,iframe,audio,video').forEach(el=>el.remove());
+    // Figma generally writes <stop stop-color="#CC5FE2">. Some SVGs use
+    // style="stop-color:#CC5FE2"; support both notations.
+    let changed=0;
+    const norm=value=>String(value||'').trim().toLowerCase();
+    root.querySelectorAll('radialGradient stop, linearGradient stop').forEach(stop=>{
+      const attr=stop.getAttribute('stop-color');
+      const inlineStyle=stop.getAttribute('style')||'';
+      const styleMatch=inlineStyle.match(/(?:^|;)\s*stop-color\s*:\s*(#[0-9a-f]{6})\b/i);
+      const current=norm(attr || styleMatch?.[1]);
+      const index=ORIGINAL_IRIS_STOPS.indexOf(current);
+      if(index<0)return;
+      const replacement=preset.stops[index];
+      if(attr!==null)stop.setAttribute('stop-color',replacement);
+      if(styleMatch)stop.setAttribute('style',inlineStyle.replace(/(stop-color\s*:\s*)#[0-9a-f]{6}\b/i,(_,prefix)=>prefix+replacement));
+      changed++;
+    });
+    if(!changed) {
+      console.warn('В SVG не найдены исходные точки градиента радужки (#CC5FE2, #C13CDB, #70347C).',colorId);
+    }
+    root.setAttribute('width','600');
+    root.setAttribute('height','1400');
+    if(!root.hasAttribute('viewBox'))root.setAttribute('viewBox','0 0 600 1400');
+    return serializer.serializeToString(root);
+  }
+  async function eyeUrl(path,colorId) {
+    const key='eye|'+path+'|'+colorId;
+    if(svgBlobCache.has(key))return svgBlobCache.get(key);
+    const task=fetchSource(path).then(code=>URL.createObjectURL(new Blob([recolourEyes(code,colorId)],{type:'image/svg+xml'})));
+    svgBlobCache.set(key,task);
+    return task;
+  }
   function fetchSource(path){
     if(sourceCache.has(path)) return sourceCache.get(path);
     const p=fetch(path).then(r=>{if(!r.ok)throw Error(path+' HTTP '+r.status);return r.text();});
@@ -168,13 +229,21 @@ add('head',BASE+'head.svg',true);
       const image=layer.querySelector('img');
       if(!image)return;
       const skin=layer.dataset.skin;
+      const eyeColor=layer.dataset.eyeColor;
       image.addEventListener('error',()=>{
         missingAssets.add(path);
         layer.classList.add('witch-doll-layer--missing');
         const msg=document.querySelector('.witch-editor-asset-warning');
         if(msg)msg.hidden=false;
       },{once:true});
-      // Do not alter Figma's source colour for the first palette option.
+      // For the default violet eyes, the original SVG is rendered unchanged.
+      if(eyeColor && eyeColor!=='amethyst') {
+        eyeUrl(path,eyeColor).then(url=>{
+          if(image.isConnected)image.src=url;
+        }).catch(err=>console.warn('Не удалось перекрасить радужку',path,err.message));
+        return;
+      }
+      // Do not alter Figma's source colour for the first skin palette option.
       if(!skin || skin===PALETTE[0].id)return;
       tintedUrl(path,skin).then(url=>{
         if(image.isConnected)image.src=url;
@@ -187,6 +256,22 @@ add('head',BASE+'head.svg',true);
     if(item.id==='skin') {
       return `<div class="witch-editor-intro"><h3>Оттенок кожи</h3><p>Выбери тон. Все части тела меняют цвет одновременно.</p></div>
         <div class="witch-editor-swatches">${PALETTE.map(p=>`<button type="button" class="witch-editor-swatch ${draft.skin===p.id?'is-selected':''}" data-action="editor-skin" data-id="${p.id}" aria-label="${escapeHtml(p.name)}" aria-pressed="${draft.skin===p.id}" title="${escapeHtml(p.name)}"><span style="background-color:${p.id}"></span></button>`).join('')}</div><p class="witch-editor-selection">${escapeHtml(PALETTE.find(p=>p.id===draft.skin)?.name||PALETTE[0].name)}</p>`;
+    }
+    if(item.id==='eyes') {
+      const selected=EYE_PALETTE.find(p=>p.id===draft.eyeColor)||EYE_PALETTE[0];
+      const swatches=EYE_PALETTE.map(p=>{
+        const gradient=`radial-gradient(circle at 42% 68%, ${p.stops[0]}, ${p.stops[1]} 48%, ${p.stops[2]})`;
+        return `<button type="button" class="witch-editor-swatch ${selected.id===p.id?'is-selected':''}" data-action="editor-eye-color" data-id="${p.id}" aria-label="${escapeHtml(p.name)}" aria-pressed="${selected.id===p.id}" title="${escapeHtml(p.name)}"><span style="background:${gradient}"></span></button>`;
+      }).join('');
+      const variants=options('eyes');
+      const variantMarkup=variants.length ? `<div class="witch-editor-options" style="margin-top:18px">
+        <button class="witch-editor-option ${!draft.eyes?'is-selected':''}" type="button" data-action="editor-option" data-category="eyes" data-id=""><span class="witch-editor-option-art">◉</span><strong>Базовая форма</strong></button>
+        ${variants.map(p=>`<button class="witch-editor-option ${draft.eyes===p.id?'is-selected':''}" type="button" data-action="editor-option" data-category="eyes" data-id="${p.id}"><span class="witch-editor-option-art">${p.thumbnail?`<img src="${escapeHtml(p.thumbnail)}" alt="">`:'◉'}</span><strong>${escapeHtml(p.name)}</strong></button>`).join('')}
+      </div>` : '<p class="witch-editor-selection" style="font-size:12px;opacity:.8">Форма глаз пока одна — твоя оригинальная.</p>';
+      return `<div class="witch-editor-intro"><h3>Цвет радужки</h3><p>Меняем только оттенки градиента, сохраняя блики.</p></div>
+        <div class="witch-editor-swatches">${swatches}</div>
+        <p class="witch-editor-selection">${escapeHtml(selected.name)}</p>
+        ${variantMarkup}`;
     }
     const list=options(item.id);
     if(!catalogLoaded) return `<div class="witch-editor-empty"><span>✧</span><h3>Загружаем каталог</h3><p>Подготавливаем доступные варианты.</p></div>`;
@@ -214,5 +299,5 @@ add('head',BASE+'head.svg',true);
       </div>
     </section>`;
   }
-  window.WitchEditor = Object.freeze({PALETTE,CATEGORIES,loadCatalog,options,option,appearanceFrom,spriteHtml,editorHtml,hydrate,isLoaded:()=>catalogLoaded,missingAssets});
+  window.WitchEditor = Object.freeze({PALETTE,EYE_PALETTE,CATEGORIES,loadCatalog,options,option,appearanceFrom,spriteHtml,editorHtml,hydrate,isLoaded:()=>catalogLoaded,missingAssets});
 })();

@@ -288,6 +288,10 @@ function action(name,id,element){
     if(WitchEditor.PALETTE.some(x=>x.id===id))ensureEditorDraft().skin=id;
     break;
   }
+  case 'editor-eye-color':{
+    if(WitchEditor.EYE_PALETTE.some(x=>x.id===id))ensureEditorDraft().eyeColor=id;
+    break;
+  }
   case 'editor-option':{
     const category=element.dataset.category;
     if(!['eyes','hair','expressions','clothing'].includes(category))return;
@@ -301,7 +305,8 @@ function action(name,id,element){
     state.character.name=name;
     state.character.skin=draft.skin;
     state.character.appearance={
-      skin:draft.skin,eyes:draft.eyes||'',hair:draft.hair||'',
+      skin:draft.skin,eyeColor:draft.eyeColor||'amethyst',
+      eyes:draft.eyes||'',hair:draft.hair||'',
       expressions:draft.expressions||'',clothing:draft.clothing||''
     };
     editorDraft=null;
