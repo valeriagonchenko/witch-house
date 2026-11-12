@@ -97,11 +97,11 @@
     add('legs',BASE+'legs.svg',true);
     add('body',BASE+'body.svg',true);
     add('neck',BASE+'neck.svg',true);
-    add('top',clothes?.top || BASE+'top_basic.svg');
-    add('shorts',clothes?.bottom || BASE+'shorts_basic.svg');
-    add('arm-left',BASE+'arm_left.svg',true);
-    add('arm-right',BASE+'arm_right.svg',true);
-    add('head',BASE+'head.svg',true);
+add('shorts',clothes?.bottom || BASE+'shorts_basic.svg');
+add('arm-left',BASE+'arm_left.svg',true);
+add('arm-right',BASE+'arm_right.svg',true);
+add('top',clothes?.top || BASE+'top_basic.svg');
+add('head',BASE+'head.svg',true);
     if(eyes?.file) add('eyes',eyes.file);
     if(expression?.file) add('expression',expression.file);
     if(clothes?.front) add('clothing-front',clothes.front);
