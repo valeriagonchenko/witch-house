@@ -1,0 +1,133 @@
+/* Character editor v0.3; scoped to .witch-editor-* so garden and kitchen remain unchanged. */
+.witch-editor-shell {
+  --witch-cream:#f7e9cc;
+  --witch-gold:#e7bd78;
+  --witch-brown:#33221f;
+  --witch-panel:#271d1b;
+  display:grid;
+  grid-template-columns:minmax(0,1fr) clamp(345px,35%,460px);
+  min-height:100svh;
+  width:100%;
+  background:#271d1b;
+  font-family:Georgia,'Times New Roman',serif;
+  color:var(--witch-cream);
+  isolation:isolate;
+}
+.witch-editor-shell button,.witch-editor-shell input{font-family:inherit}
+.witch-editor-stage {
+  position:relative;
+  min-height:100svh;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  align-items:stretch;
+  background-image:linear-gradient(90deg,rgba(27,14,17,.38),rgba(28,14,12,.08) 57%,rgba(13,9,8,.36)),url('assets/backgrounds/witch_wardrobe.png'),radial-gradient(circle at 28% 18%,#79513d 3%,#38251e 70%);
+  background-position:center,center,center;
+  background-size:cover;
+}
+.witch-editor-stage::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 43% 68%,transparent 20%,rgba(26,11,8,.36) 97%);
+}
+.witch-editor-stage::after{content:"";pointer-events:none;position:absolute;bottom:7.5%;left:12%;width:62%;height:7%;border-radius:50%;background:radial-gradient(ellipse,rgba(16,9,6,.38),transparent 70%);filter:blur(5px)}
+.witch-editor-topline,.witch-editor-stage-footer{z-index:2;position:relative;display:flex;justify-content:space-between;gap:18px;align-items:center;padding:31px 35px;font-size:12px;letter-spacing:.13em;color:#ffe8bc;text-shadow:0 1px 8px rgba(16,10,7,.8)}
+.witch-editor-topline>span:first-child{font-size:17px;letter-spacing:.025em;font-style:italic}
+.witch-editor-topline em{font-style:normal;color:#f5cd84;font-weight:bold;margin-left:8px}
+.witch-editor-stage-footer{padding-bottom:28px;font-size:14px;letter-spacing:.06em}
+.witch-editor-hint{font-family:Arial,sans-serif;font-size:10px;letter-spacing:.04em;color:#efd2ab}
+.witch-editor-doll-holder{position:absolute;z-index:2;inset:72px 0 46px;display:grid;place-items:center;overflow:hidden;pointer-events:none}
+.witch-doll {position:relative;display:block;aspect-ratio:600/1400;isolation:isolate;flex:none;}
+.witch-doll--full{height:min(calc(100svh - 162px),780px);width:auto;max-width:90%;}
+.witch-doll-layer{position:absolute;inset:0;display:block;pointer-events:none;overflow:visible}
+.witch-doll-layer img{width:100%;height:100%;display:block;user-select:none;object-fit:fill;image-rendering:auto}
+.witch-doll-layer--missing img{visibility:hidden}
+.witch-editor-asset-warning{z-index:5;position:absolute;bottom:56px;left:25px;right:25px;background:#37221fe8;border:1px solid #d49f7f;color:#fff2df;padding:11px 13px;font:12px/1.4 Arial,sans-serif;border-radius:6px}
+.witch-editor-asset-warning[hidden]{display:none}
+.witch-editor-sidebar{position:relative;z-index:3;background:linear-gradient(128deg,#342621 0%,#251a19 62%,#1c1718 100%);padding:40px clamp(18px,3vw,40px) 30px;display:flex;flex-direction:column;min-width:0;box-shadow:-12px 0 30px rgba(16,7,8,.28);overflow-y:auto}
+.witch-editor-sidebar::before{content:"";position:absolute;inset:13px;pointer-events:none;border:1px solid rgba(235,186,115,.19)}
+.witch-editor-sidebar-head{text-align:center;position:relative;margin-bottom:25px}
+.witch-editor-overline{font-size:11px;letter-spacing:.21em;color:#dcb577;text-transform:uppercase}
+.witch-editor-sidebar-head h2{font-weight:400;font-size:clamp(27px,2.8vw,37px);color:#f8edd5;margin:13px 0 8px;line-height:1.15}
+.witch-editor-sidebar-head p{font-family:Arial,sans-serif;font-size:12px;color:#cdb5a3;letter-spacing:.03em;line-height:1.5;margin:0}
+.witch-editor-namebox{position:relative;border-top:1px solid #755641;border-bottom:1px solid #755641;padding:14px 0 16px;margin-bottom:21px;display:grid;gap:7px}
+.witch-editor-namebox label{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#e1be91}
+.witch-editor-namebox input{width:100%;background:#4b3229;border:1px solid #8d6549;color:#ffedca;padding:10px 12px;border-radius:4px;font-size:15px;outline-offset:2px}
+.witch-editor-tabs{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;margin-bottom:20px;position:relative}
+.witch-editor-tab{border:1px solid #715743;border-radius:4px;color:#d8c3aa;background:#4b3429;min-width:0;min-height:67px;padding:8px 2px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-family:Arial,sans-serif!important;font-size:10px!important;transition:background .18s,border-color .18s,transform .18s}
+.witch-editor-tab:hover{background:#6d4930}
+.witch-editor-tab.is-selected{background:#866039;color:#ffe9b4;border-color:#f0cc86;box-shadow:inset 0 0 0 1px #f0cc866b}
+.witch-editor-tab-icon{font-size:22px;font-family:Georgia,serif;line-height:1}
+.witch-editor-controls{min-height:220px;position:relative;padding:15px 2px}
+.witch-editor-intro{text-align:center;margin-bottom:21px}
+.witch-editor-intro h3{color:#f4dfb8;font-size:21px;font-weight:400;margin:0 0 8px}
+.witch-editor-intro p{color:#baa898;font-family:Arial,sans-serif;font-size:12px;line-height:1.5;margin:0}
+.witch-editor-swatches{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;justify-items:center;align-items:center}
+.witch-editor-swatch{width:42px;height:42px;padding:3px;border-radius:50%;border:2px solid #705448;background:transparent;transition:transform .17s,border-color .17s}
+.witch-editor-swatch span{width:100%;height:100%;display:block;border-radius:50%;box-shadow:inset 0 -5px 9px rgba(44,25,15,.15)}
+.witch-editor-swatch:hover{transform:translateY(-2px)}
+.witch-editor-swatch.is-selected{border-color:#ffd78c;box-shadow:0 0 0 3px #d7a85655,0 0 17px #edc37980}
+.witch-editor-selection{color:#f0d8b4;text-align:center;font-size:14px;margin:18px 0 0}
+.witch-editor-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.witch-editor-option{display:flex;flex-direction:column;align-items:center;gap:7px;min-height:130px;padding:8px;background:#4b332d;border:1px solid #71513a;color:#f6e4cb;border-radius:4px}
+.witch-editor-option.is-selected{border-color:#ffda94;box-shadow:0 0 0 1px #e4ac64}
+.witch-editor-option-art{display:grid;place-items:center;width:100%;height:82px;border-radius:3px;background:linear-gradient(140deg,#735342,#432d28);font-size:30px;overflow:hidden}
+.witch-editor-option-art img{width:100%;height:100%;object-fit:contain}
+.witch-editor-option strong{font:12px/1.3 Arial,sans-serif;min-height:25px;display:grid;place-items:center}
+.witch-editor-empty{padding:12px 18px;text-align:center;color:#c9b49f}
+.witch-editor-empty>span{display:block;font-size:42px;color:#dfb777;margin-bottom:9px}
+.witch-editor-empty h3{font-size:21px;font-weight:400;color:#efd8b3;margin:0 0 10px}
+.witch-editor-empty p{font:13px/1.6 Arial,sans-serif;color:#c6b3a3;margin:0 0 14px}
+.witch-editor-empty small{font:11px/1.5 Arial,sans-serif;color:#ae9582}
+.witch-editor-actions{margin-top:auto;padding-top:20px;border-top:1px solid #78533c;position:relative}
+.witch-editor-actions p{text-align:center;font:11px/1.5 Arial,sans-serif;color:#bca58e;margin:0 0 14px}
+.witch-editor-action-row{display:flex;gap:10px}
+.witch-editor-action-row button{border-radius:5px;padding:13px 12px;font-size:14px;transition:filter .16s,background .16s}
+.witch-editor-action-row button:hover{filter:brightness(1.12)}
+.witch-editor-back{border:1px solid #a08063;color:#e6d5c0;background:transparent;flex:0 0 38%}
+.witch-editor-save{border:1px solid #fff2c7;background:linear-gradient(#fff2d0,#e7c38a);color:#593b2a;font-weight:bold;flex:1;box-shadow:0 5px 18px #0003}
+/* Desktop drawer is not part of the immersive character editor. */
+.game-shell:has(.witch-editor-shell){grid-template-columns:minmax(0,1fr) 0}
+.game-shell:has(.witch-editor-shell) .drawer{display:none}
+.game-shell:has(.witch-editor-shell) .menu-toggle{display:none}
+.game-shell:has(.witch-editor-shell) .version-label{color:#dcc7a7;text-shadow:0 1px 5px #000;z-index:4;position:fixed;left:12px}
+.game-shell:has(.witch-editor-shell) .scene-area{overflow:visible}
+.game-shell:has(.witch-editor-shell) .scene-content{display:block}
+/* Miniature uses the same original SVG layers, cropped to show the face. */
+.profile-avatar{position:relative}
+.profile-avatar .witch-doll--portrait{position:absolute;width:190px;height:443px;top:0;left:50%;transform:translateX(-50%);overflow:visible}
+.profile-avatar .witch-doll-layer img{max-width:none;max-height:none}
+@media(max-width:1050px){
+  .witch-editor-shell{grid-template-columns:minmax(0,1fr) minmax(335px,42%)}
+  .witch-editor-sidebar{padding:34px 23px 25px}
+  .witch-editor-topline{padding:24px 25px}
+  .witch-editor-doll-holder{inset:80px 0 36px}
+  .witch-doll--full{height:min(calc(100svh - 155px),710px)}
+}
+@media(max-width:760px){
+  .witch-editor-shell{display:flex;flex-direction:column;min-height:100svh}
+  .witch-editor-stage{min-height:450px;height:58svh;max-height:620px;flex:none}
+  .witch-editor-doll-holder{inset:50px 0 20px}
+  .witch-doll--full{height:min(calc(58svh - 75px),510px)}
+  .witch-editor-topline{padding:15px 17px;font-size:10px}
+  .witch-editor-topline>span:first-child{font-size:14px}
+  .witch-editor-stage-footer{padding:15px 18px;font-size:11px}
+  .witch-editor-sidebar{padding:24px 21px 27px;min-height:390px;overflow:visible}
+  .witch-editor-sidebar-head{margin-bottom:19px}
+  .witch-editor-sidebar-head h2{font-size:28px;margin:8px 0 6px}
+  .witch-editor-tabs{margin-bottom:9px}
+  .witch-editor-controls{min-height:180px}
+  .witch-editor-actions{padding-top:15px}
+  .witch-editor-asset-warning{bottom:38px;left:12px;right:12px}
+  .game-shell:has(.witch-editor-shell) .scene-area{min-height:100svh}
+  .game-shell:has(.witch-editor-shell) .version-label{display:none}
+}
+@media(max-width:390px){
+  .witch-editor-swatch{width:35px;height:35px}
+  .witch-editor-swatches{gap:5px}
+  .witch-editor-sidebar{padding-left:16px;padding-right:16px}
+  .witch-editor-tab{min-height:60px;font-size:9px!important}
+  .witch-editor-tab-icon{font-size:19px}
+  .witch-editor-topline>span:first-child{display:none}
+}
+@media(prefers-reduced-motion:reduce){.witch-editor-shell *{transition:none!important}}

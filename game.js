@@ -73,6 +73,16 @@ state.created=true;
 state.level=Number.isFinite(state.level)?Math.max(1,state.level):1;
 if(!['home','garden','kitchen','shop','journal','companion','mailbox','profile'].includes(state.nav))state.nav='home';
 let menuOpen=false;let toastTimer=null;
+// Editor draft is separate from the saved witch: Cancel never changes the game.
+let editorDraft=null;
+let editorCategory='skin';
+function ensureEditorDraft(){
+  if(!editorDraft)editorDraft=WitchEditor.appearanceFrom(state.character);
+  return editorDraft;
+}
+WitchEditor.loadCatalog().then(()=>{
+  if(state.nav==='profile')render();
+});
 function save(){try{localStorage.setItem(SAVE_KEY,JSON.stringify(state));}catch(e){console.warn('Не удалось сохранить игру',e);}}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function formatCost(coins,wood=0){return `${coins} 🪙${wood?' · '+wood+' 🪵':''}`;}
@@ -121,17 +131,18 @@ function render(){
   if(!state.created)state.created=true;
   const c=state.character;
   const screens={home:renderHome,garden:renderGarden,kitchen:renderKitchen,shop:renderShop,journal:renderJournal,companion:renderCompanion,mailbox:renderMailbox,profile:renderProfile};
+  if(state.nav==='profile')ensureEditorDraft();
   const current=(screens[state.nav]||renderHome)();
   const locked=Array.from({length:5},()=>`<button class="locked-tile" type="button" disabled><span>Скоро будут<br>доступны</span></button>`).join('');
   $app.innerHTML=`<div class="game-shell ${menuOpen?'menu-open':''}">
     <main class="scene-area">
-      ${state.nav!=='home'?`<button class="back-home" data-action="nav" data-id="home">← Дом</button>`:''}
+      ${state.nav!=='home'&&state.nav!=='profile'?`<button class="back-home" data-action="nav" data-id="home">← Дом</button>`:''}
       <div class="scene-content">${current}</div>
-      <small class="version-label">Версия 0.2</small>
+      <small class="version-label">Версия 0.3</small>
     </main>
     <aside class="drawer" aria-label="Игровое меню" aria-hidden="${!menuOpen}">
       <section class="profile-block">
-        <button class="profile-avatar" data-action="profile" aria-label="Открыть редактор персонажа">${renderAvatar(c)}</button>
+        <button class="profile-avatar" data-action="profile" aria-label="Открыть редактор персонажа">${WitchEditor.spriteHtml(WitchEditor.appearanceFrom(c),'portrait')}</button>
         <div class="profile-copy"><strong>${esc(c.name)}</strong><span>Уровень ${state.level}</span><small>День ${state.day} · Энергия ${state.energy}/${maxEnergy()} · Монеты ${state.coins}</small></div>
       </section>
       <nav class="nav-grid" aria-label="Разделы игры">
@@ -147,6 +158,7 @@ function render(){
     </aside>
     <button class="menu-toggle" data-action="toggle-menu" aria-label="${menuOpen?'Закрыть меню':'Открыть меню'}" aria-expanded="${menuOpen}"><span></span><span></span><span></span></button>
   </div>`;
+  WitchEditor.hydrate($app);
 }
 function renderSide(opts={}){
   return `<div class="right-column"><section class="panel"><h3 class="subheading">🎒 В кармашках</h3><div class="mini-list">${Object.entries(INGREDIENTS).map(([id,item])=>`<div class="resource-row"><span>${item.icon} ${item.name}</span><b>${state.inventory[id]||0}</b></div>`).join('')}<div class="resource-row"><span>🪵 Древесина</span><b>${state.wood}</b></div></div></section>
@@ -253,7 +265,7 @@ function renderMailbox(){
   return `<section class="screen-page"><div class="screen-heading"><h1>Почтовый ящик</h1><p>Здесь будут появляться письма от жителей леса, подарки и приглашения от подруг.</p></div><section class="panel mailbox-empty"><div>✉️</div><h2>Пока писем нет</h2><p>Кажется, почтальон ещё не добрался до твоего домика.</p></section></section>`;
 }
 function renderProfile(){
-  return `<section class="screen-page"><div class="screen-heading"><h1>Редактор персонажа</h1><p>Здесь ты сможешь менять внешность, причёску, одежду и аксессуары своей ведьмочки.</p></div><section class="panel profile-coming"><div class="profile-preview">${renderAvatar(state.character)}</div><div><span class="tag">В разработке</span><h2>${esc(state.character.name)}</h2><p>Редактор пока готовится. Следующим этапом добавим полноценную модельку, которую можно будет кастомизировать по слоям.</p><button class="btn secondary" data-action="nav" data-id="home">Вернуться домой</button></div></section></section>`;
+  return WitchEditor.editorHtml(ensureEditorDraft(),editorCategory);
 }
 function selectedPlot(){return state.plots[state.selectedPlot];}
 function action(name,id,element){
@@ -265,9 +277,43 @@ function action(name,id,element){
   case 'start':{
     const name=String(state.character.name).trim();state.character.name=name.slice(0,24)||'Луна';state.created=true;addLog(`${state.character.name} переступила порог нового дома. Рядом её верный спутник.`);break;
   }
-  case 'nav':{if(['home','garden','kitchen','shop','journal','companion','mailbox','profile'].includes(id)){state.nav=id;menuOpen=false;}break;}
+  case 'nav':{if(['home','garden','kitchen','shop','journal','companion','mailbox','profile'].includes(id)){state.nav=id;menuOpen=false;if(id==='profile'){editorDraft=WitchEditor.appearanceFrom(state.character);editorCategory='skin';}}break;}
   case 'toggle-menu':{menuOpen=!menuOpen;render();return;}
-  case 'profile':{state.nav='profile';menuOpen=false;break;}
+  case 'profile':{editorDraft=WitchEditor.appearanceFrom(state.character);editorCategory='skin';state.nav='profile';menuOpen=false;break;}
+  case 'editor-tab':{
+    if(WitchEditor.CATEGORIES.some(x=>x.id===id)) editorCategory=id;
+    break;
+  }
+  case 'editor-skin':{
+    if(WitchEditor.PALETTE.some(x=>x.id===id))ensureEditorDraft().skin=id;
+    break;
+  }
+  case 'editor-option':{
+    const category=element.dataset.category;
+    if(!['eyes','hair','expressions','clothing'].includes(category))return;
+    if(id && !WitchEditor.option(category,id))return;
+    ensureEditorDraft()[category]=id||'';
+    break;
+  }
+  case 'editor-save':{
+    const draft=ensureEditorDraft();
+    const name=String(draft.name||'').trim().slice(0,24)||'Луна';
+    state.character.name=name;
+    state.character.skin=draft.skin;
+    state.character.appearance={
+      skin:draft.skin,eyes:draft.eyes||'',hair:draft.hair||'',
+      expressions:draft.expressions||'',clothing:draft.clothing||''
+    };
+    editorDraft=null;
+    state.nav='home';menuOpen=false;
+    notice('Внешность ведьмочки сохранена ✨');
+    break;
+  }
+  case 'editor-cancel':{
+    editorDraft=null;
+    state.nav='home';menuOpen=false;
+    break;
+  }
   case 'next-day':{
     state.day++;state.energy=maxEnergy();state.weather=['☀️ Ясно','🌦️ Переменная облачность','🌫️ Туманно','🌧️ Дождь'][Math.floor(Math.random()*4)];
     state.plots.forEach(p=>{if(p&&p.growth<CROPS[p.type].days)p.growth=Math.min(CROPS[p.type].days,p.growth+1);});
@@ -389,6 +435,9 @@ $app.addEventListener('input',e=>{
   if(e.target?.id==='witchname'){
     state.character.name=e.target.value.slice(0,24);save();
   }
+  if(e.target?.id==='witch-editor-name'){
+    ensureEditorDraft().name=e.target.value.slice(0,24);
+  }
 });
 $app.addEventListener('change',async e=>{
   if(e.target?.id!=='import-save')return;
@@ -399,7 +448,7 @@ $app.addEventListener('change',async e=>{
     // Basic integrity checks against malformed or edited saves.
     if(!Number.isFinite(data.day)||data.day<1||!Number.isFinite(data.coins)||data.coins<0||typeof data.created!=='boolean')throw new Error('Некорректные данные сохранения.');
     if(!confirm(`Загрузить сохранение ведьмочки «${String(data.character.name).slice(0,24)}»? Текущий прогресс будет заменён.`))return;
-    state=data;state.character.name=String(data.character.name).slice(0,24);state.created=true;state.level=Number.isFinite(data.level)?Math.max(1,data.level):1;state.nav=['home','garden','kitchen','shop','journal','companion','mailbox','profile'].includes(data.nav)?data.nav:'home';menuOpen=false;
+    state=data;state.character.name=String(data.character.name).slice(0,24);state.created=true;state.level=Number.isFinite(data.level)?Math.max(1,data.level):1;state.nav=['home','garden','kitchen','shop','journal','companion','mailbox','profile'].includes(data.nav)?data.nav:'home';menuOpen=false;editorDraft=null;editorCategory='skin';
     state.selectedPlot=Number.isInteger(data.selectedPlot)&&data.selectedPlot>=0&&data.selectedPlot<6?data.selectedPlot:0;
     state.selectedSeed=CROPS[data.selectedSeed]?data.selectedSeed:'tomato';
     save();render();notice('Сохранение загружено!');
