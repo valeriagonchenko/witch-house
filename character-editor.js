@@ -58,11 +58,12 @@
   const CATEGORIES = [
     {id:'skin', title:'Кожа', icon:'◈'},
     {id:'eyes', title:'Глаза', icon:'◉'},
+    {id:'eyebrows', title:'Брови', icon:'⌁'},
     {id:'hair', title:'Волосы', icon:'✧'},
     {id:'expressions', title:'Эмоции', icon:'☺'},
     {id:'clothing', title:'Одежда', icon:'♢'}
   ];
-  const CATALOG_DEFAULT = {eyes:[],hair:[],expressions:[],clothing:[]};
+  const CATALOG_DEFAULT = {eyes:[],eyebrows:[],hair:[],expressions:[],clothing:[]};
   let catalog = {...CATALOG_DEFAULT};
   let catalogLoaded = false;
   let catalogPromise = null;
@@ -112,6 +113,7 @@
       lashColor: LASH_IDS.has(src.lashColor) ? src.lashColor : 'original',
       blushColor: BLUSH_IDS.has(src.blushColor) ? src.blushColor : 'original',
       eyes: typeof src.eyes==='string' ? src.eyes : '',
+      eyebrows: typeof src.eyebrows==='string' ? src.eyebrows : '',
       hair: typeof src.hair==='string' ? src.hair : '',
       expressions: typeof src.expressions==='string' ? src.expressions : '',
       clothing: typeof src.clothing==='string' ? src.clothing : '',
@@ -120,7 +122,7 @@
   }
   function normalizedSelection(a){
     const n={...a};
-    for(const k of ['eyes','hair','expressions','clothing']){
+    for(const k of ['eyes','eyebrows','hair','expressions','clothing']){
       if(n[k] && !option(k,n[k])) n[k]='';
     }
     return n;
@@ -132,6 +134,7 @@
   function layers(appearance) {
     const selected = normalizedSelection(appearance);
     const hair = option('hair',selected.hair), eyes = option('eyes',selected.eyes);
+    const brows = option('eyebrows',selected.eyebrows);
     const expression = option('expressions',selected.expressions);
     const clothes = option('clothing',selected.clothing);
     const all=[];
@@ -147,8 +150,9 @@
     // Top covers both arms, as in the latest manually adjusted base model.
     add('top',clothes?.top || BASE+'top_basic.svg');
     add('head',BASE+'head.svg',true);
-    // The cheek tint is drawn on top of the head but below both eyes.
+    // The cheek tint and brows are face layers between the head and eyes.
     if(selected.blushColor!=='none') add('blush',BASE+'blush.svg',false,false,true);
+    if(brows?.file) add('eyebrows',brows.file);
     // Original left and right eyes, each already positioned in a 600×1400 frame.
     // A later eye-shape variant can supply one merged file or a left/right pair.
     if(eyes?.file) add('eyes',eyes.file,false,true);
@@ -394,7 +398,7 @@
     }
     const list=options(item.id);
     if(!catalogLoaded) return `<div class="witch-editor-empty"><span>✧</span><h3>Загружаем каталог</h3><p>Подготавливаем доступные варианты.</p></div>`;
-    if(!list.length) return `<div class="witch-editor-empty"><span>✧</span><h3>Пока нет элементов</h3><p>${item.id==='hair'?'Здесь появятся твои SVG-причёски.':item.id==='eyes'?'Здесь появятся нарисованные глаза.':item.id==='expressions'?'Здесь будут эмоции и выражения лица.':'Здесь будет гардероб ведьмочки.'}</p><small>Добавим их позже, не меняя код редактора.</small></div>`;
+    if(!list.length) return `<div class="witch-editor-empty"><span>✧</span><h3>Пока нет элементов</h3><p>${item.id==='hair'?'Здесь появятся твои SVG-причёски.':item.id==='eyes'?'Здесь появятся нарисованные глаза.':item.id==='eyebrows'?'Здесь появятся варианты формы бровей.':item.id==='expressions'?'Здесь будут эмоции и выражения лица.':'Здесь будет гардероб ведьмочки.'}</p><small>Добавим их позже, не меняя код редактора.</small></div>`;
     return `<div class="witch-editor-intro"><h3>${escapeHtml(item.title)}</h3><p>Выбери внешний вид для ведьмочки.</p></div><div class="witch-editor-options">
       <button class="witch-editor-option ${!draft[item.id]?'is-selected':''}" type="button" data-action="editor-option" data-category="${item.id}" data-id="" aria-pressed="${!draft[item.id]}"><span class="witch-editor-option-art">∅</span><strong>Не выбрано</strong></button>
       ${list.map(p=>`<button class="witch-editor-option ${draft[item.id]===p.id?'is-selected':''}" type="button" data-action="editor-option" data-category="${item.id}" data-id="${p.id}" aria-pressed="${draft[item.id]===p.id}"><span class="witch-editor-option-art">${p.thumbnail?`<img src="${escapeHtml(p.thumbnail)}" alt="" loading="lazy">`:'✧'}</span><strong>${escapeHtml(p.name)}</strong></button>`).join('')}
@@ -402,9 +406,10 @@
   }
   function editorHtml(draft,active='skin'){
     const i=Math.max(0,CATEGORIES.findIndex(x=>x.id===active));
+    const total=String(CATEGORIES.length).padStart(2,'0');
     return `<section class="witch-editor-shell" aria-label="Редактор персонажа">
       <div class="witch-editor-stage">
-        <div class="witch-editor-topline"><span>✦ Ведьмин домик</span><span>ОБЛИК ВЕДЬМЫ <em>${String(i+1).padStart(2,'0')} / 05</em></span></div>
+        <div class="witch-editor-topline"><span>✦ Ведьмин домик</span><span>ОБЛИК ВЕДЬМЫ <em>${String(i+1).padStart(2,'0')} / ${total}</em></span></div>
         <div class="witch-editor-doll-holder">${spriteHtml(draft,'full')}</div>
         <div class="witch-editor-stage-footer"><span>✦ Твоя ведьмочка</span><span class="witch-editor-hint">Все SVG: 600 × 1400</span></div>
         <p class="witch-editor-asset-warning" ${missingAssets.size?'':'hidden'}>Не удалось загрузить часть SVG. Проверь папку assets/character/base/ и точные имена файлов.</p>
@@ -412,7 +417,7 @@
       <div class="witch-editor-sidebar">
         <div class="witch-editor-sidebar-head"><div class="witch-editor-overline">✧ Личная магия</div><h2>Создай свой образ</h2><p>Каждая ведьмочка неповторима</p></div>
         <div class="witch-editor-namebox"><label for="witch-editor-name">Имя ведьмочки</label><input id="witch-editor-name" maxlength="24" value="${escapeHtml(draft.name)}" placeholder="Как её зовут?" autocomplete="off" /></div>
-        <div class="witch-editor-tabs" role="group" aria-label="Категории внешности">${CATEGORIES.map(x=>`<button class="witch-editor-tab ${active===x.id?'is-selected':''}" data-action="editor-tab" data-id="${x.id}" type="button" aria-pressed="${active===x.id}"><span class="witch-editor-tab-icon">${x.icon}</span><span>${escapeHtml(x.title)}</span></button>`).join('')}</div>
+        <div class="witch-editor-tabs" style="grid-template-columns:repeat(3,minmax(0,1fr))" role="group" aria-label="Категории внешности">${CATEGORIES.map(x=>`<button class="witch-editor-tab ${active===x.id?'is-selected':''}" data-action="editor-tab" data-id="${x.id}" type="button" aria-pressed="${active===x.id}"><span class="witch-editor-tab-icon">${x.icon}</span><span>${escapeHtml(x.title)}</span></button>`).join('')}</div>
         <div class="witch-editor-controls" aria-live="polite">${controlHtml(draft,active)}</div>
         <div class="witch-editor-actions"><p>Изменения вступят в силу после сохранения.</p><div class="witch-editor-action-row"><button class="witch-editor-back" type="button" data-action="editor-cancel">← Отмена</button><button class="witch-editor-save" type="button" data-action="editor-save">Сохранить образ ✧</button></div></div>
       </div>

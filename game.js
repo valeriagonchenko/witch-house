@@ -138,7 +138,7 @@ function render(){
     <main class="scene-area">
       ${state.nav!=='home'&&state.nav!=='profile'?`<button class="back-home" data-action="nav" data-id="home">← Дом</button>`:''}
       <div class="scene-content">${current}</div>
-      <small class="version-label">Версия 0.3</small>
+      <small class="version-label">Версия 0.3.3</small>
     </main>
     <aside class="drawer" aria-label="Игровое меню" aria-hidden="${!menuOpen}">
       <section class="profile-block">
@@ -302,7 +302,7 @@ function action(name,id,element){
   }
   case 'editor-option':{
     const category=element.dataset.category;
-    if(!['eyes','hair','expressions','clothing'].includes(category))return;
+    if(!['eyes','eyebrows','hair','expressions','clothing'].includes(category))return;
     if(id && !WitchEditor.option(category,id))return;
     ensureEditorDraft()[category]=id||'';
     break;
@@ -315,7 +315,7 @@ function action(name,id,element){
     state.character.appearance={
       skin:draft.skin,eyeColor:draft.eyeColor||'amethyst',
       lashColor:draft.lashColor||'original',blushColor:draft.blushColor||'original',
-      eyes:draft.eyes||'',hair:draft.hair||'',
+      eyes:draft.eyes||'',eyebrows:draft.eyebrows||'',hair:draft.hair||'',
       expressions:draft.expressions||'',clothing:draft.clothing||''
     };
     editorDraft=null;
