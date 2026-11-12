@@ -1,7 +1,43 @@
 {
-  "version": 1,
-  "eyes": [],
-  "hair": [],
-  "expressions": [],
+  "version": 2,
+  "eyes": [
+    {
+      "id": "half_closed",
+      "name": "Полуприкрытые",
+      "left": "assets/character/base/eye_half-closed_left.svg",
+      "right": "assets/character/base/eye_half-closed_right.svg"
+    }
+  ],
+  "eyebrows": [
+    {
+      "id": "basic",
+      "name": "Спокойные",
+      "file": "assets/character/base/eyebrows-basic.svg"
+    },
+    {
+      "id": "amazement",
+      "name": "Удивлённые",
+      "file": "assets/character/base/eyebrows-amazement.svg"
+    },
+    {
+      "id": "angry",
+      "name": "Сердитые",
+      "file": "assets/character/base/eyebrows-angry.svg"
+    }
+  ],
+  "hair": [
+    {
+      "id": "sailor",
+      "name": "Морячка",
+      "front": "assets/character/base/sailor-hair.svg"
+    }
+  ],
+  "expressions": [
+    {
+      "id": "snarl",
+      "name": "Дерзкая ухмылка",
+      "file": "assets/character/base/mouth_snarl.svg"
+    }
+  ],
   "clothing": []
 }
