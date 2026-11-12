@@ -12,7 +12,10 @@
     {id:'#dcaa88',name:'Тёплый'},
     {id:'#ad785e',name:'Золотисто-смуглый'},
     {id:'#90614e',name:'Каштановый'},
-    {id:'#724937',name:'Тёмный'}
+    {id:'#724937',name:'Тёмный'},
+    {id:'#a4d9ef',name:'Лунно-голубой'},
+    {id:'#f5a8cb',name:'Розовая фея'},
+    {id:'#a4d6a2',name:'Лесная зелень'}
   ];
   // Iris colours. Each preset replaces only three existing Figma gradient stops.
   // Both base eye SVGs remain untouched on disk.
@@ -22,10 +25,36 @@
     {id:'sapphire', name:'Сапфировые', stops:['#91DDFF','#489EE8','#234C93']},
     {id:'amber', name:'Янтарные', stops:['#FFE5A5','#E3A43E','#82451D']},
     {id:'rose', name:'Розовые', stops:['#FFC7EB','#ED81BF','#8D3869']},
-    {id:'silver', name:'Серебряные', stops:['#E6E9FF','#A5B4DA','#515C85']}
+    {id:'silver', name:'Серебряные', stops:['#E6E9FF','#A5B4DA','#515C85']},
+    {id:'ruby', name:'Рубиновые', stops:['#FF8797','#DC4058','#731B34']},
+    {id:'onyx', name:'Чёрные', stops:['#9393A3','#484756','#12111D']}
   ];
   const ORIGINAL_IRIS_STOPS = EYE_PALETTE[0].stops.map(s=>s.toLowerCase());
   const EYE_COLOR_IDS = new Set(EYE_PALETTE.map(p=>p.id));
+  // The base blush SVG is a transparent 600x1400 layer on top of the head.
+  // 'original' never modifies the Figma source. 'none' hides the layer.
+  const BLUSH_PALETTE = [
+    {id:'none',name:'Без румянца',color:null},
+    {id:'original',name:'Оригинальный',color:'#F29E9E'},
+    {id:'pink',name:'Нежно-розовый',color:'#F8A9C7'},
+    {id:'coral',name:'Коралловый',color:'#F38D79'},
+    {id:'berry',name:'Ягодный',color:'#C96591'},
+    {id:'peach',name:'Персиковый',color:'#F6AD86'},
+    {id:'lilac',name:'Лавандовый',color:'#B99AE6'}
+  ];
+  const BLUSH_IDS = new Set(BLUSH_PALETTE.map(x=>x.id));
+  // Lash recolouring is independent from iris recolouring. It targets
+  // burgundy eyelash/eyelid paths, not brown pupils or white reflections.
+  const LASH_PALETTE = [
+    {id:'original',name:'Оригинальные',color:'#702A49'},
+    {id:'black',name:'Чёрные',color:'#202027'},
+    {id:'chocolate',name:'Шоколадные',color:'#63423B'},
+    {id:'auburn',name:'Медные',color:'#A75A3D'},
+    {id:'plum',name:'Сливовые',color:'#80518F'},
+    {id:'emerald',name:'Изумрудные',color:'#396F59'},
+    {id:'silver',name:'Серебряные',color:'#B9B6C3'}
+  ];
+  const LASH_IDS = new Set(LASH_PALETTE.map(x=>x.id));
   const CATEGORIES = [
     {id:'skin', title:'Кожа', icon:'◈'},
     {id:'eyes', title:'Глаза', icon:'◉'},
@@ -80,6 +109,8 @@
     return {
       skin,
       eyeColor: EYE_COLOR_IDS.has(src.eyeColor) ? src.eyeColor : 'amethyst',
+      lashColor: LASH_IDS.has(src.lashColor) ? src.lashColor : 'original',
+      blushColor: BLUSH_IDS.has(src.blushColor) ? src.blushColor : 'original',
       eyes: typeof src.eyes==='string' ? src.eyes : '',
       hair: typeof src.hair==='string' ? src.hair : '',
       expressions: typeof src.expressions==='string' ? src.expressions : '',
@@ -104,7 +135,7 @@
     const expression = option('expressions',selected.expressions);
     const clothes = option('clothing',selected.clothing);
     const all=[];
-    const add=(key,src,tint=false,eye=false)=>{const path=safeRelativePath(src);if(path)all.push({key,src:path,tint,eye});};
+    const add=(key,src,tint=false,eye=false,blush=false)=>{const path=safeRelativePath(src);if(path)all.push({key,src:path,tint,eye,blush});};
     if(hair?.back) add('hair-back',hair.back);
     if(clothes?.back) add('clothes-back',clothes.back);
     add('legs',BASE+'legs.svg',true);
@@ -116,6 +147,8 @@
     // Top covers both arms, as in the latest manually adjusted base model.
     add('top',clothes?.top || BASE+'top_basic.svg');
     add('head',BASE+'head.svg',true);
+    // The cheek tint is drawn on top of the head but below both eyes.
+    if(selected.blushColor!=='none') add('blush',BASE+'blush.svg',false,false,true);
     // Original left and right eyes, each already positioned in a 600×1400 frame.
     // A later eye-shape variant can supply one merged file or a left/right pair.
     if(eyes?.file) add('eyes',eyes.file,false,true);
@@ -134,8 +167,13 @@
     const a=appearance || appearanceFrom({});
     const aSkin=PALETTE.some(x=>x.id===a.skin)?a.skin:PALETTE[0].id;
     const eyeColor=EYE_COLOR_IDS.has(a.eyeColor)?a.eyeColor:'amethyst';
-    const html=layers(a).map(l=>`<span class="witch-doll-layer" data-svg-src="${escapeHtml(l.src)}" data-skin="${l.tint ? escapeHtml(aSkin):''}" data-eye-color="${l.eye ? eyeColor:''}" data-layer="${escapeHtml(l.key)}"><img src="${escapeHtml(l.src)}" alt="" draggable="false" loading="eager"></span>`).join('');
-    return `<div class="witch-doll witch-doll--${variant}" role="img" aria-label="Векторная модель ведьмочки">${html}</div>`;
+    const lashColor=LASH_IDS.has(a.lashColor)?a.lashColor:'original';
+    const blushColor=BLUSH_IDS.has(a.blushColor)?a.blushColor:'original';
+    const html=layers({...a,blushColor}).map(l=>`<span class="witch-doll-layer" data-svg-src="${escapeHtml(l.src)}" data-skin="${l.tint ? escapeHtml(aSkin):''}" data-eye-color="${l.eye ? eyeColor:''}" data-lash-color="${l.eye ? lashColor:''}" data-blush-color="${l.blush ? blushColor:''}" data-layer="${escapeHtml(l.key)}"><img src="${escapeHtml(l.src)}" alt="" draggable="false" loading="eager"></span>`).join('');
+    // Move ONLY the small profile portrait upwards; preserve the user's
+    // manually customised position of the large doll in the wardrobe.
+    const portraitOffset=variant==='portrait'?' style="top:-30px"':'';
+    return `<div class="witch-doll witch-doll--${variant}"${portraitOffset} role="img" aria-label="Векторная модель ведьмочки">${html}</div>`;
   }
 
   // SVG recolouring keeps original paths, gradients and vector geometry intact.
@@ -172,9 +210,69 @@
     if(!root.hasAttribute('viewBox')) root.setAttribute('viewBox','0 0 600 1400');
     return serializer.serializeToString(root);
   }
+  // A light shade-aware tint for the separate blush SVG. Coloured
+  // paint and gradient stops change hue while neutral masks stay unchanged.
+  function recolourBlush(code, colorId) {
+    const preset=BLUSH_PALETTE.find(p=>p.id===colorId);
+    if(!preset || !preset.color) throw Error('Неизвестный цвет румянца');
+    const doc=xmlParser.parseFromString(code,'image/svg+xml');
+    if(doc.querySelector('parsererror') || doc.documentElement.localName!=='svg')throw Error('Некорректный SVG румянца');
+    const root=doc.documentElement;
+    root.querySelectorAll('script,foreignObject,iframe,audio,video').forEach(x=>x.remove());
+    const target=[1,3,5].map(i=>parseInt(preset.color.slice(i,i+2),16));
+    const recolor=v=>v.replace(/#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?/g,hex=>{
+      const rgb=[1,3,5].map(i=>parseInt(hex.slice(i,i+2),16));
+      const hi=Math.max(...rgb),lo=Math.min(...rgb);
+      if(hi-lo<17 || hi<55 || lo>246)return hex; // preserve whites, ink, neutral masks
+      const ratio=(rgb[0]*.3+rgb[1]*.59+rgb[2]*.11)/175;
+      const mapped=target.map(channel=>Math.max(0,Math.min(255,Math.round(channel*(.68+.32*ratio)))));
+      return '#'+mapped.map(x=>x.toString(16).padStart(2,'0')).join('')+(hex.length===9?hex.slice(7):'');
+    });
+    root.querySelectorAll('*').forEach(el=>{
+      for(const attr of ['fill','stroke','stop-color','style']){
+        const current=el.getAttribute(attr);
+        if(current)el.setAttribute(attr,recolor(current));
+      }
+    });
+    root.setAttribute('width','600');root.setAttribute('height','1400');
+    if(!root.hasAttribute('viewBox'))root.setAttribute('viewBox','0 0 600 1400');
+    return serializer.serializeToString(root);
+  }
+  // Figma typically exports lashes/upper eyelids in a dark burgundy ink,
+  // whereas pupils are dark BROWN. Keep these separate using named group
+  // ids when present, then a conservative burgundy colour test as fallback.
+  function recolourLashes(root, colorId){
+    const preset=LASH_PALETTE.find(p=>p.id===colorId);
+    if(!preset || colorId==='original')return;
+    const target=preset.color;
+    const isLashInk=hex=>{
+      const m=String(hex).match(/^#([0-9a-f]{6})([0-9a-f]{2})?$/i);
+      if(!m)return false;
+      const [r,g,b]=[0,2,4].map(i=>parseInt(m[1].slice(i,i+2),16));
+      return r>=45 && r<205 && g<115 && b<155 && r>g*1.35 && b>g*1.17 && r>b*1.07;
+    };
+    let changed=0;
+    root.querySelectorAll('*').forEach(el=>{
+      if(el.closest('defs') || el.tagName.toLowerCase()==='stop')return;
+      let labeled=false;
+      for(let n=el;n && n!==root;n=n.parentElement){
+        if(/lash|eyelid|ресниц/i.test(n.getAttribute('id')||'')){labeled=true;break;}
+      }
+      for(const attr of ['fill','stroke','style']){
+        const current=el.getAttribute(attr);
+        if(!current)continue;
+        const updated=current.replace(/#[0-9a-fA-F]{6}(?:[0-9a-fA-F]{2})?/g,hex=>{
+          if(labeled ? !/^#[0-9a-f]{6,8}$/i.test(hex) : !isLashInk(hex))return hex;
+          changed++;return target+(hex.length===9?hex.slice(7):'');
+        });
+        if(updated!==current)el.setAttribute(attr,updated);
+      }
+    });
+    if(!changed)console.warn('В SVG не найдены отдельные заливки ресниц. При необходимости назови соответствующую группу в Figma «lashes» и экспортируй SVG повторно.');
+  }
   // Recolour only the iris gradient stops, not the pupil, eyelashes,
   // sclera or highlights. SVG geometry and radialGradient coordinates stay as-is.
-  function recolourEyes(code, colorId) {
+  function recolourEyes(code, colorId, lashColor='original') {
     const preset=EYE_PALETTE.find(p=>p.id===colorId);
     if(!preset) throw Error('Неизвестный цвет глаз');
     const doc=xmlParser.parseFromString(code,'image/svg+xml');
@@ -197,18 +295,26 @@
       if(styleMatch)stop.setAttribute('style',inlineStyle.replace(/(stop-color\s*:\s*)#[0-9a-f]{6}\b/i,(_,prefix)=>prefix+replacement));
       changed++;
     });
-    if(!changed) {
+    if(!changed && colorId!=='amethyst') {
       console.warn('В SVG не найдены исходные точки градиента радужки (#CC5FE2, #C13CDB, #70347C).',colorId);
     }
+    recolourLashes(root,lashColor);
     root.setAttribute('width','600');
     root.setAttribute('height','1400');
     if(!root.hasAttribute('viewBox'))root.setAttribute('viewBox','0 0 600 1400');
     return serializer.serializeToString(root);
   }
-  async function eyeUrl(path,colorId) {
-    const key='eye|'+path+'|'+colorId;
+  async function eyeUrl(path,colorId,lashColor) {
+    const key='eye|'+path+'|'+colorId+'|'+lashColor;
     if(svgBlobCache.has(key))return svgBlobCache.get(key);
-    const task=fetchSource(path).then(code=>URL.createObjectURL(new Blob([recolourEyes(code,colorId)],{type:'image/svg+xml'})));
+    const task=fetchSource(path).then(code=>URL.createObjectURL(new Blob([recolourEyes(code,colorId,lashColor)],{type:'image/svg+xml'})));
+    svgBlobCache.set(key,task);
+    return task;
+  }
+  async function blushUrl(path,colorId){
+    const key='blush|'+path+'|'+colorId;
+    if(svgBlobCache.has(key))return svgBlobCache.get(key);
+    const task=fetchSource(path).then(code=>URL.createObjectURL(new Blob([recolourBlush(code,colorId)],{type:'image/svg+xml'})));
     svgBlobCache.set(key,task);
     return task;
   }
@@ -230,17 +336,25 @@
       if(!image)return;
       const skin=layer.dataset.skin;
       const eyeColor=layer.dataset.eyeColor;
+      const lashColor=layer.dataset.lashColor;
+      const blushColor=layer.dataset.blushColor;
       image.addEventListener('error',()=>{
         missingAssets.add(path);
         layer.classList.add('witch-doll-layer--missing');
         const msg=document.querySelector('.witch-editor-asset-warning');
         if(msg)msg.hidden=false;
       },{once:true});
-      // For the default violet eyes, the original SVG is rendered unchanged.
-      if(eyeColor && eyeColor!=='amethyst') {
-        eyeUrl(path,eyeColor).then(url=>{
+      // Apply iris and eyelash colours independently to the SAME eye SVG.
+      if(eyeColor && (eyeColor!=='amethyst' || lashColor!=='original')) {
+        eyeUrl(path,eyeColor,lashColor).then(url=>{
           if(image.isConnected)image.src=url;
-        }).catch(err=>console.warn('Не удалось перекрасить радужку',path,err.message));
+        }).catch(err=>console.warn('Не удалось перекрасить глаз',path,err.message));
+        return;
+      }
+      if(blushColor && blushColor!=='original'){
+        blushUrl(path,blushColor).then(url=>{
+          if(image.isConnected)image.src=url;
+        }).catch(err=>console.warn('Не удалось перекрасить румянец',path,err.message));
         return;
       }
       // Do not alter Figma's source colour for the first skin palette option.
@@ -255,7 +369,9 @@
     const item=CATEGORIES.find(x=>x.id===active) || CATEGORIES[0];
     if(item.id==='skin') {
       return `<div class="witch-editor-intro"><h3>Оттенок кожи</h3><p>Выбери тон. Все части тела меняют цвет одновременно.</p></div>
-        <div class="witch-editor-swatches">${PALETTE.map(p=>`<button type="button" class="witch-editor-swatch ${draft.skin===p.id?'is-selected':''}" data-action="editor-skin" data-id="${p.id}" aria-label="${escapeHtml(p.name)}" aria-pressed="${draft.skin===p.id}" title="${escapeHtml(p.name)}"><span style="background-color:${p.id}"></span></button>`).join('')}</div><p class="witch-editor-selection">${escapeHtml(PALETTE.find(p=>p.id===draft.skin)?.name||PALETTE[0].name)}</p>`;
+        <div class="witch-editor-swatches">${PALETTE.map(p=>`<button type="button" class="witch-editor-swatch ${draft.skin===p.id?'is-selected':''}" data-action="editor-skin" data-id="${p.id}" aria-label="${escapeHtml(p.name)}" aria-pressed="${draft.skin===p.id}" title="${escapeHtml(p.name)}"><span style="background-color:${p.id}"></span></button>`).join('')}</div><p class="witch-editor-selection">${escapeHtml(PALETTE.find(p=>p.id===draft.skin)?.name||PALETTE[0].name)}</p>
+        <div class="witch-editor-intro" style="margin-top:24px"><h3>Румянец</h3><p>Оригинальный blush.svg или цвет на выбор.</p></div>
+        <div class="witch-editor-swatches">${BLUSH_PALETTE.map(p=>`<button type="button" class="witch-editor-swatch ${draft.blushColor===p.id?'is-selected':''}" data-action="editor-blush-color" data-id="${p.id}" aria-label="${escapeHtml(p.name)}" aria-pressed="${draft.blushColor===p.id}" title="${escapeHtml(p.name)}"><span style="background:${p.id==='none'?'linear-gradient(135deg,#eee 44%,#b94949 45%,#b94949 55%,#eee 56%)':p.color}"></span></button>`).join('')}</div><p class="witch-editor-selection">${escapeHtml(BLUSH_PALETTE.find(p=>p.id===draft.blushColor)?.name||'Оригинальный')}</p>`;
     }
     if(item.id==='eyes') {
       const selected=EYE_PALETTE.find(p=>p.id===draft.eyeColor)||EYE_PALETTE[0];
@@ -271,6 +387,9 @@
       return `<div class="witch-editor-intro"><h3>Цвет радужки</h3><p>Меняем только оттенки градиента, сохраняя блики.</p></div>
         <div class="witch-editor-swatches">${swatches}</div>
         <p class="witch-editor-selection">${escapeHtml(selected.name)}</p>
+        <div class="witch-editor-intro" style="margin-top:26px"><h3>Цвет ресниц</h3><p>Отдельно от радужки и зрачков.</p></div>
+        <div class="witch-editor-swatches">${LASH_PALETTE.map(p=>`<button type="button" class="witch-editor-swatch ${draft.lashColor===p.id?'is-selected':''}" data-action="editor-lash-color" data-id="${p.id}" aria-label="${escapeHtml(p.name)}" aria-pressed="${draft.lashColor===p.id}" title="${escapeHtml(p.name)}"><span style="background:${p.color}"></span></button>`).join('')}</div>
+        <p class="witch-editor-selection">${escapeHtml(LASH_PALETTE.find(p=>p.id===draft.lashColor)?.name||'Оригинальные')}</p>
         ${variantMarkup}`;
     }
     const list=options(item.id);
@@ -299,5 +418,5 @@
       </div>
     </section>`;
   }
-  window.WitchEditor = Object.freeze({PALETTE,EYE_PALETTE,CATEGORIES,loadCatalog,options,option,appearanceFrom,spriteHtml,editorHtml,hydrate,isLoaded:()=>catalogLoaded,missingAssets});
+  window.WitchEditor = Object.freeze({PALETTE,EYE_PALETTE,BLUSH_PALETTE,LASH_PALETTE,CATEGORIES,loadCatalog,options,option,appearanceFrom,spriteHtml,editorHtml,hydrate,isLoaded:()=>catalogLoaded,missingAssets});
 })();
